@@ -1,8 +1,9 @@
 /**
  * Discover page — i18n v2
  */
-import { showToast } from '../app.js';
 import { t } from '../i18n.js';
+import { state } from '../app.js';
+import { renderMoments } from './moments.js';
 
 export function renderDiscover(root) {
   root.innerHTML = `
@@ -23,6 +24,6 @@ export function renderDiscover(root) {
   `;
 
   root.querySelector('#moments-item').addEventListener('click', () => {
-    showToast(t('comingSoon'));
+    renderMoments(root);
   });
 }

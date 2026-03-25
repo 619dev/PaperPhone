@@ -74,6 +74,14 @@ export const api = {
     fd.append('file', file);
     return req('POST', '/api/upload', fd, true);
   },
+
+  // Moments (朋友圈)
+  momentsFeed:      (before) => req('GET', `/api/moments${before ? `?before=${before}` : ''}`),
+  createMoment:     (d)      => req('POST', '/api/moments', d),
+  deleteMoment:     (id)     => req('DELETE', `/api/moments/${id}`),
+  likeMoment:       (id)     => req('POST', `/api/moments/${id}/like`),
+  addComment:       (id, text) => req('POST', `/api/moments/${id}/comments`, { text }),
+  deleteComment:    (mid, cid) => req('DELETE', `/api/moments/${mid}/comments/${cid}`),
 };
 
 export const WS_URL = (() => {

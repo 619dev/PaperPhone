@@ -1,6 +1,6 @@
 # PaperPhone IM
 
-A WeChat-style end-to-end encrypted instant messaging app with X3DH + Double Ratchet + ML-KEM-768 post-quantum encryption, real-time video calls, multi-language support and iOS PWA deployment.
+A WeChat-style end-to-end encrypted instant messaging app with stateless ECDH + XSalsa20-Poly1305 per-message encryption, real-time video calls, Cloudflare R2 file storage, multi-language support and iOS PWA deployment.
 
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green)](#) [![MySQL](https://img.shields.io/badge/MySQL-8.0-blue)](#) [![Redis](https://img.shields.io/badge/Redis-7.x-red)](#) [![WebRTC](https://img.shields.io/badge/WebRTC-P2P%20%2B%20Mesh-orange)](#)
 
@@ -12,13 +12,14 @@ A WeChat-style end-to-end encrypted instant messaging app with X3DH + Double Rat
 
 | Feature | Description |
 |---------|-------------|
-| 🔐 End-to-End Encryption | X3DH key agreement + Double Ratchet forward secrecy |
-| ⚛️ Post-Quantum | ML-KEM-768 (CRYSTALS-Kyber, NIST standard) injected into every Ratchet step |
+| 🔐 End-to-End Encryption | Stateless ECDH + XSalsa20-Poly1305 — ephemeral keys per message, forward secrecy |
 | 🗝️ Zero-Knowledge Server | Server stores only ciphertext; private keys never leave the device |
 | 📹 Video & Voice Calls | WebRTC P2P (1:1) + Mesh (group), Cloudflare TURN for NAT traversal |
 | 🌐 Multi-Language | Chinese, English, Japanese, Korean, French — auto-detect + manual switch |
 | 📱 iOS — No Enterprise Cert | PWA via Safari "Add to Home Screen", works permanently without Apple signing |
 | 💬 Rich Messaging | Text, images, voice messages, 64-emoji panel, delivery receipts, typing indicators |
+| 🌐 Moments | WeChat-style social feed: text + up to 9 photos, likes, comments |
+| 🗂️ R2 Object Storage | Cloudflare R2 for image/voice files — optional public CDN URL |
 | 🏗️ Self-Hostable | Docker Compose one-command deployment; Node.js + Redis multi-node ready |
 
 ---
@@ -30,21 +31,19 @@ Backend (server/)
   Node.js 20 + Express + ws
   MySQL 8.0  — users, messages (persisted ciphertext)
   Redis      — online presence + cross-node routing
-  MinIO      — file and image object storage
+  Cloudflare R2 — image/voice file storage (S3-compatible API)
   JWT + bcrypt authentication
 
 Frontend (client/)
   Native HTML + Vanilla JS (ESM, no bundler required)
-  libsodium-wrappers (WebAssembly — Curve25519 / Ed25519)
-  ML-KEM-768 (CRYSTALS-Kyber)
+  libsodium-wrappers (WebAssembly — Curve25519 / XSalsa20-Poly1305)
   WebRTC API — video / voice calls
   PWA: manifest.json + Service Worker
 
 Cryptographic Layer
-  X3DH (4-DH) → shared secret establishment
-  Double Ratchet → per-message independent keys (forward secrecy)
-  ML-KEM-768   → injected each step for post-quantum protection
-  All private keys stored in IndexedDB — never sent to the server
+  Stateless ECDH + XSalsa20-Poly1305 — ephemeral keypair per message
+  Four-tier key persistence: memory → localStorage → sessionStorage → IndexedDB
+  All private keys stored on-device only — never sent to the server
 ```
 
 ---
@@ -65,6 +64,10 @@ Cryptographic Layer
 - On first startup, the server automatically creates all database tables (`CREATE TABLE IF NOT EXISTS`) — no manual SQL import needed
 - Redis runs without a password inside the cluster (intra-cluster network isolation is sufficient)
 - If MySQL access is denied, manually set `DB_PASS` on the server service to the value of `MYSQL_ROOT_PASSWORD` from the MySQL service
+- To get the **internal IP** of any service container, open that service's Terminal in the Zeabur console and run:
+  ```bash
+  hostname -i
+  ```
 
 ---
 
@@ -101,7 +104,7 @@ open http://localhost
 ```bash
 # Copy and edit environment variables
 cp server/.env.example server/.env
-# Fill in DB_HOST / DB_PASS / REDIS_HOST / MINIO_* etc.
+# Fill in DB_HOST / DB_PASS / REDIS_HOST / R2_* etc.
 
 # Note: the server auto-runs schema.sql on first startup
 ```
@@ -213,7 +216,9 @@ paperphone/
 │       │   ├── friends.js      # Friend requests / Accept
 │       │   ├── groups.js       # Group management
 │       │   ├── messages.js     # Historical messages (paginated ciphertext)
-│       │   ├── upload.js       # MinIO file upload
+│       │   ├── upload.js       # Cloudflare R2 file upload
+│       │   ├── files.js        # File proxy (when R2_PUBLIC_URL is not set)
+│       │   ├── moments.js      # Moments feed (posts / likes / comments)
 │       │   └── calls.js        # TURN credential issuance
 │       └── ws/
 │           └── wsServer.js     # WebSocket router (messages + call signalling)
@@ -245,22 +250,40 @@ paperphone/
 
 ---
 
+## Database Schema
+
+9 tables, auto-created on first server startup (`CREATE TABLE IF NOT EXISTS`):
+
+| Table | Purpose |
+|-------|---------|
+| `users` | User profiles + ECDH/OPK public keys |
+| `prekeys` | X3DH one-time prekey pool |
+| `friends` | Friendship relationships (pending / accepted / blocked) |
+| `groups` / `group_members` | Group chats + membership |
+| `messages` | Encrypted payloads (offline buffer, deletable after delivery) |
+| `moments` | Social posts (text ≤ 1024 chars) |
+| `moment_images` | Post images (up to 9 per post) |
+| `moment_likes` | Likes (unique per user per post) |
+| `moment_comments` | Comments (≤ 512 chars each) |
+
+---
+
 ## Security Model
 
 ```
 On Registration:
   Device generates IK (Identity Key) + SPK (Signed PreKey) + 10× OPK (One-Time PreKeys)
-  Public keys are uploaded; private keys stay in IndexedDB and never leave the device
+  Public keys are uploaded; private keys stay on-device (four-tier persistence)
 
-On First Message:
-  Sender downloads recipient's Prekey Bundle (IK_pub + SPK_pub + OPK_pub)
-  X3DH four-way DH → 32-byte shared secret
-  Double Ratchet initialised; ML-KEM-768 shared secret injected
-  Every subsequent message uses an independent key (forward + break-in recovery secrecy)
+On Each Message:
+  Sender fetches recipient's IK public key
+  Generates a fresh ephemeral ECDH keypair (per-message)
+  X25519 ECDH → shared secret → XSalsa20-Poly1305 encrypt
+  Ephemeral public key sent in message header; destroyed after use
 
 What the Server Sees:
   ✅ Ciphertext blob + routing metadata (sender / recipient UUID, timestamps)
-  ❌ Plaintext / private keys / session state / call content
+  ❌ Plaintext / private keys / ephemeral keys / call content
 ```
 
 ---
@@ -273,7 +296,11 @@ What the Server Sees:
 | `JWT_SECRET` | JWT signing key (**change in production**) | dev_secret |
 | `DB_HOST` / `DB_PASS` / `DB_NAME` | MySQL connection | — |
 | `REDIS_HOST` / `REDIS_PASS` | Redis connection | — |
-| `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` | MinIO object storage | — |
+| `R2_ACCOUNT_ID` | Cloudflare account ID | — |
+| `R2_ACCESS_KEY_ID` | R2 API token access key | — |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret key | — |
+| `R2_BUCKET` | R2 bucket name | — |
+| `R2_PUBLIC_URL` | R2 public base URL (optional) — enables direct CDN links | — |
 | `CF_CALLS_APP_ID` | Cloudflare Calls App ID (optional) | — |
 | `CF_CALLS_APP_SECRET` | Cloudflare Calls App Secret (optional) | — |
 

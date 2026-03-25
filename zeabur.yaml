@@ -5,8 +5,8 @@ metadata:
 
 spec:
   description: >-
-    A WeChat-style, end-to-end encrypted IM app with X3DH + Double Ratchet +
-    ML-KEM-768 post-quantum encryption, WebRTC video/voice calls, and iOS PWA
+    A WeChat-style, end-to-end encrypted IM app with stateless ECDH E2EE,
+    WebRTC video/voice calls, Cloudflare R2 file storage, and iOS PWA
     support — fully self-hostable.
   icon: https://raw.githubusercontent.com/facilisvelox/paperphone/main/client/icons/icon-192.png
   tags:
@@ -19,21 +19,22 @@ spec:
     A **WeChat-style**, end-to-end encrypted instant messaging application.
 
     ## Security
-    - **X3DH** + **Double Ratchet** — per-message forward secrecy
-    - **ML-KEM-768** (CRYSTALS-Kyber, NIST standard) — post-quantum protection injected into every Ratchet step
-    - **Zero-knowledge server** — only ciphertext is stored; private keys never leave the device (IndexedDB)
+    - **Stateless ECDH + XSalsa20-Poly1305** — per-message ephemeral keys, forward secrecy without session state
+    - **Zero-knowledge server** — only ciphertext is stored; private keys never leave the device
+    - **Four-tier key persistence** — memory → localStorage → sessionStorage → IndexedDB, survives WebView restarts
 
     ## Features
     - 📹 **Video & Voice Calls** — WebRTC P2P (1:1) + Mesh (group up to 6)
     - 🌐 **Multi-language** — Chinese, English, Japanese, Korean, French
     - 📱 **iOS PWA** — "Add to Home Screen" via Safari, no enterprise cert needed
     - 💬 Rich messaging: text, images, voice, emoji, delivery receipts, typing indicators
+    - 🗂️ **Cloudflare R2** file storage (images & voice messages)
 
     ## After Deployment
     1. Open the domain assigned to the **client** service.
     2. Register an account — cryptographic keys are generated locally on your device.
-    3. (Optional) Configure Cloudflare TURN for cross-network video calls:
-       - Set `CF_CALLS_APP_ID` and `CF_CALLS_APP_SECRET` on the **server** service.
+    3. (Optional) Configure Cloudflare R2 for image/voice uploads — set `R2_*` variables on the **server** service.
+    4. (Optional) Configure Cloudflare TURN for cross-network video calls — set `CF_CALLS_APP_ID` and `CF_CALLS_APP_SECRET`.
 
     ## Docker Hub Images
     - `facilisvelox/paperphone-client:latest`
@@ -49,6 +50,39 @@ spec:
       type: STRING
       name: JWT Secret
       description: A long random string used to sign authentication tokens. Change this before going to production.
+
+    - key: R2_ACCOUNT_ID
+      type: STRING
+      name: Cloudflare R2 Account ID
+      description: Your Cloudflare account ID (found in Cloudflare Dashboard → right sidebar).
+
+    - key: R2_ACCESS_KEY_ID
+      type: STRING
+      name: R2 Access Key ID
+      description: R2 API token access key (R2 → Manage API tokens → Create token).
+
+    - key: R2_SECRET_ACCESS_KEY
+      type: STRING
+      name: R2 Secret Access Key
+      description: R2 API token secret key paired with the access key above.
+
+    - key: R2_BUCKET
+      type: STRING
+      name: R2 Bucket Name
+      description: Name of the R2 bucket to store uploaded files (e.g. paperphone).
+
+    - key: R2_PUBLIC_URL
+      type: STRING
+      name: R2 Public URL (optional)
+      description: >-
+        Public base URL for the bucket, e.g. https://pub-xxx.r2.dev or your
+        custom domain. If set, files are served directly from R2/CDN.
+        Leave blank to proxy files through the server.
+
+    - key: MYSQL_ROOT_PASSWORD
+      type: STRING
+      name: MySQL Root Password
+      description: Password for the MySQL root user. Set this yourself — it will NOT be auto-generated.
 
     - key: CF_CALLS_APP_ID
       type: STRING
@@ -82,7 +116,7 @@ spec:
             dir: /var/lib/mysql
         env:
           MYSQL_ROOT_PASSWORD:
-            default: ${PASSWORD}
+            default: ${MYSQL_ROOT_PASSWORD}
             expose: true
           MYSQL_ROOT_HOST:
             default: "%"
@@ -95,7 +129,7 @@ spec:
             expose: true
             readonly: true
           MYSQL_PASSWORD:
-            default: ${PASSWORD}
+            default: ${MYSQL_ROOT_PASSWORD}
             expose: true
           MYSQL_HOST:
             default: ${CONTAINER_HOSTNAME}
@@ -171,59 +205,6 @@ spec:
             title: Redis Connection String
             content: redis://:${REDIS_PASSWORD}@${PORT_FORWARDED_HOSTNAME}:${DATABASE_PORT_FORWARDED_PORT}
 
-    # ── MinIO (Object Storage) ──────────────────────────────────────
-    - name: MinIO
-      icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/minio.svg
-      template: PREBUILT
-      spec:
-        source:
-          image: minio/minio:latest
-          command:
-            - /usr/bin/minio
-            - server
-            - /data
-            - --console-address
-            - ":9001"
-        ports:
-          - id: api
-            port: 9000
-            type: HTTP
-          - id: console
-            port: 9001
-            type: HTTP
-        volumes:
-          - id: data
-            dir: /data
-        env:
-          MINIO_ROOT_USER:
-            default: minioadmin
-            expose: true
-            readonly: true
-          MINIO_ROOT_PASSWORD:
-            default: ${PASSWORD}
-            expose: true
-          MINIO_HOST:
-            default: ${CONTAINER_HOSTNAME}
-            expose: true
-            readonly: true
-          MINIO_PORT:
-            default: "9000"
-            expose: true
-            readonly: true
-          MINIO_BUCKET:
-            default: paperphone
-            expose: true
-            readonly: true
-        instructions:
-          - type: TEXT
-            title: MinIO Access Key
-            content: ${MINIO_ROOT_USER}
-            category: Credentials
-          - type: PASSWORD
-            title: MinIO Secret Key
-            content: ${MINIO_ROOT_PASSWORD}
-            category: Credentials
-
     # ── PaperPhone Server (Node.js) ────────────────────────────────
     - name: server
       icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/node.svg
@@ -231,7 +212,6 @@ spec:
       dependencies:
         - MySQL
         - Redis
-        - MinIO
       spec:
         source:
           image: facilisvelox/paperphone-server:latest
@@ -239,11 +219,16 @@ spec:
           - id: web
             port: 3000
             type: HTTP
+        volumes:
+          - id: uploads
+            dir: /app/uploads
         env:
           PORT:
             default: "3000"
           NODE_ENV:
             default: production
+          UPLOAD_DIR:
+            default: /app/uploads
           JWT_SECRET:
             default: ${JWT_SECRET}
           JWT_EXPIRES_IN:
@@ -262,18 +247,16 @@ spec:
             default: ${REDIS_HOST}
           REDIS_PORT:
             default: ${REDIS_PORT}
-          MINIO_ENDPOINT:
-            default: ${MINIO_HOST}
-          MINIO_PORT:
-            default: ${MINIO_PORT}
-          MINIO_USE_SSL:
-            default: "false"
-          MINIO_ACCESS_KEY:
-            default: ${MINIO_ROOT_USER}
-          MINIO_SECRET_KEY:
-            default: ${MINIO_ROOT_PASSWORD}
-          MINIO_BUCKET:
-            default: ${MINIO_BUCKET}
+          R2_ACCOUNT_ID:
+            default: ${R2_ACCOUNT_ID}
+          R2_ACCESS_KEY_ID:
+            default: ${R2_ACCESS_KEY_ID}
+          R2_SECRET_ACCESS_KEY:
+            default: ${R2_SECRET_ACCESS_KEY}
+          R2_BUCKET:
+            default: ${R2_BUCKET}
+          R2_PUBLIC_URL:
+            default: ${R2_PUBLIC_URL}
           CF_CALLS_APP_ID:
             default: ${CF_CALLS_APP_ID}
           CF_CALLS_APP_SECRET:
@@ -304,8 +287,8 @@ spec:
 localization:
   zh-CN:
     description: >-
-      微信风格的端对端加密即时通讯 App，支持 X3DH + Double Ratchet + ML-KEM-768
-      后量子加密、WebRTC 视频/语音通话、多语言与 iOS PWA 部署，完全可自建。
+      微信风格的端对端加密即时通讯 App，支持无状态 ECDH 加密、WebRTC 视频/语音通话、
+      Cloudflare R2 文件存储、多语言与 iOS PWA 部署，完全可自建。
     variables:
       - key: PUBLIC_DOMAIN
         type: DOMAIN
@@ -315,6 +298,32 @@ localization:
         type: STRING
         name: JWT 密钥
         description: 用于签发认证令牌的长随机字符串，生产环境请务必修改。
+      - key: MYSQL_ROOT_PASSWORD
+        type: STRING
+        name: MySQL 密码
+        description: MySQL root 用户的密码，请自行设置，不会自动生成。
+      - key: R2_ACCOUNT_ID
+        type: STRING
+        name: Cloudflare 账号 ID
+        description: Cloudflare 账号 ID（位于 Dashboard 右侧边栏）。
+      - key: R2_ACCESS_KEY_ID
+        type: STRING
+        name: R2 Access Key ID
+        description: R2 API Token 的 Access Key（R2 → 管理 API 令牌 → 创建令牌）。
+      - key: R2_SECRET_ACCESS_KEY
+        type: STRING
+        name: R2 Secret Access Key
+        description: 与上方 Access Key 配对的 Secret Key。
+      - key: R2_BUCKET
+        type: STRING
+        name: R2 Bucket 名称
+        description: 存储上传文件的 R2 Bucket 名称（如 paperphone）。
+      - key: R2_PUBLIC_URL
+        type: STRING
+        name: R2 公开 URL（可选）
+        description: >-
+          Bucket 的公开访问 URL，如 https://pub-xxx.r2.dev 或自定义域名。
+          设置后文件直接走 R2 CDN，无需经过服务器代理。留空则由服务器代理。
       - key: CF_CALLS_APP_ID
         type: STRING
         name: Cloudflare Calls App ID（可选）
@@ -329,18 +338,19 @@ localization:
       **微信风格**的端对端加密即时通讯应用。
 
       ## 安全模型
-      - **X3DH + Double Ratchet** — 逐消息前向保密
-      - **ML-KEM-768**（CRYSTALS-Kyber，NIST 标准）— 每轮注入，抗量子攻击
-      - **零知识服务器** — 仅存储密文，私钥仅存 IndexedDB，永不上传
+      - **无状态 ECDH + XSalsa20-Poly1305** — 逐消息临时密钥，前向保密无需会话状态同步
+      - **零知识服务器** — 仅存储密文，私钥仅在设备本地，永不上传
+      - **四层密钥持久化** — 内存 → localStorage → sessionStorage → IndexedDB，Android WebView 重启后仍可恢复
 
       ## 功能亮点
       - 📹 **视频/语音通话** — WebRTC P2P（1:1）+ Mesh 多人（≤6 人）
       - 🌐 **多语言** — 中文、英文、日语、韩语、法语
       - 📱 **iOS 永久免签** — Safari「添加到主屏幕」，无需企业证书
       - 💬 富文本消息、图片、语音、Emoji、送达回执、打字状态
+      - 🗂️ **Cloudflare R2** 对象存储（图片与语音消息）
 
-      ## 部署后
+      ## 部署后操作
       1. 打开分配给 **client** 服务的域名。
       2. 注册账号 — 密钥在本地设备生成。
-      3. （可选）配置 Cloudflare TURN 以支持跨公网视频通话：
-         在 **server** 服务中设置 `CF_CALLS_APP_ID` 和 `CF_CALLS_APP_SECRET`。
+      3. （可选）在 **server** 服务设置 `R2_*` 变量，启用图片/语音上传功能。
+      4. （可选）配置 Cloudflare TURN 以支持跨公网视频通话。

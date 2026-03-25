@@ -1,6 +1,6 @@
 # PaperPhone IM
 
-一款微信风格的端对端加密即时通讯应用，融合 X3DH + Double Ratchet + ML-KEM-768 后量子加密，支持 iOS PWA 永久免签。
+一款微信风格的端对端加密即时通讯应用，采用无状态 ECDH + XSalsa20-Poly1305 逐消息加密，支持 iOS PWA 永久免签与 Cloudflare R2 文件存储。
 
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green)](#) [![MySQL](https://img.shields.io/badge/MySQL-8.0-blue)](#) [![Redis](https://img.shields.io/badge/Redis-7.x-red)](#) [![WebRTC](https://img.shields.io/badge/WebRTC-P2P%20%2B%20Mesh-orange)](#)
 
@@ -12,13 +12,14 @@
 
 | 功能 | 说明 |
 |------|------|
-| 🔐 端对端加密 | X3DH 初始密钥协商 + Double Ratchet 前向保密 |
-| ⚛️ 抗量子 | ML-KEM-768 (CRYSTALS-Kyber, NIST 标准) 注入每轮 Ratchet |
-| 🗝️ 零知识服务器 | 服务器只存储密文，私钥仅在设备 IndexedDB |
+| 🔐 端对端加密 | 无状态 ECDH + XSalsa20-Poly1305，逐消息临时密钥，前向保密 |
+| 🗝️ 零知识服务器 | 服务器只存储密文，私钥仅在设备本地（四层持久化） |
 | 📹 视频/语音通话 | WebRTC P2P（1:1）+ Mesh（多人），Cloudflare TURN 穿透 |
 | 🌐 多语言 | 中文、英文、日语、韩语、法语（自动检测 + 手动切换） |
 | 📱 iOS 永久免签 | PWA H5 → Safari「添加到主屏幕」，无需企业证书 |
 | 💬 消息功能 | 文字、图片、语音消息、Emoji 面板（64 个）、已读状态 |
+| 🌐 朋友圈 | 发动态（文字+最多9张图）、点赞、评论、好友动态流 |
+| 🗂️ R2 对象存储 | Cloudflare R2 存储图片/语音，可选公开 CDN 直链 |
 | 🏗️ 可自托管 | Docker Compose 一键部署，支持 Node.js + Redis 多节点 |
 
 ---
@@ -30,21 +31,19 @@
   Node.js 20 + Express + ws
   MySQL 8.0  — 用户/消息持久化
   Redis      — 在线状态 + 跨节点路由
-  MinIO      — 图片/文件对象存储
+  Cloudflare R2 — 图片/语音文件存储（S3 兼容 API）
   JWT + bcrypt 认证
 
 前端 (client/)
   原生 HTML + Vanilla JS (ESM，无打包工具)
-  libsodium-wrappers (WebAssembly, Curve25519 / Ed25519)
-  ML-KEM-768 (CRYSTALS-Kyber)
+  libsodium-wrappers (WebAssembly, Curve25519 / XSalsa20-Poly1305)
   WebRTC API  — 视频/语音通话
   PWA: manifest.json + Service Worker
 
 加密层
-  X3DH (4-DH) → 共享秘密
-  Double Ratchet → 逐消息独立密钥（前向保密）
-  ML-KEM-768   → 每轮注入，抗量子攻击
-  私钥: 全程存储于 IndexedDB，从不上传服务器
+  无状态 ECDH + XSalsa20-Poly1305 — 逐消息临时 ECDH 密钥对，前向保密
+  私钥四层持久化: 内存 → localStorage → sessionStorage → IndexedDB
+  私钥全程存储在设备本地，从不上传服务器
 ```
 
 ---
@@ -65,6 +64,10 @@
 - 首次启动 server 会自动创建数据库表（`CREATE TABLE IF NOT EXISTS`），无需手动导入 schema
 - Redis 在集群内无需密码，已默认关闭认证
 - 若需配置 MySQL root 密码，可在 server 服务的 `DB_PASS` 里手动填写 MySQL 服务的 `MYSQL_ROOT_PASSWORD`
+- 如需获取某个服务容器的**内网 IP**，在 Zeabur 控制台打开该服务的命令行（Terminal），输入：
+  ```bash
+  hostname -i
+  ```
 
 ---
 
@@ -101,7 +104,7 @@ open http://localhost
 ```bash
 # 复制并编辑环境变量
 cp server/.env.example server/.env
-# 填写 DB_HOST / DB_PASS / REDIS_HOST / MINIO_* 等
+# 填写 DB_HOST / DB_PASS / REDIS_HOST / R2_* 等
 
 # 注：server 首次启动会自动执行 schema.sql，无需手动导入
 ```
@@ -213,7 +216,9 @@ paperphone/
 │       │   ├── friends.js      # 好友申请 / 接受
 │       │   ├── groups.js       # 群组管理
 │       │   ├── messages.js     # 历史消息（密文分页）
-│       │   ├── upload.js       # MinIO 文件上传
+│       │   ├── upload.js       # Cloudflare R2 文件上传
+│       │   ├── files.js        # 文件代理（R2_PUBLIC_URL 未设时）
+│       │   ├── moments.js      # 朋友圈（动态/点赞/评论）
 │       │   └── calls.js        # TURN 凭据派发
 │       └── ws/
 │           └── wsServer.js     # WebSocket 路由（含通话信令）
@@ -232,7 +237,7 @@ paperphone/
         │   └── webrtc.js       # WebRTC 管理器（CallManager）
         ├── crypto/
         │   ├── ratchet.js      # X3DH + Double Ratchet + ML-KEM-768
-        │   └── keystore.js     # IndexedDB 私钥存储
+        │   └── keystore.js     # 四层私钥持久化（内存/localStorage/sessionStorage/IndexedDB）
         └── pages/
             ├── login.js        # 登录/注册（含密钥生成、语言切换）
             ├── chats.js        # 会话列表
@@ -245,22 +250,40 @@ paperphone/
 
 ---
 
+## 数据库结构
+
+共 9 张表，首次启动自动创建（`CREATE TABLE IF NOT EXISTS`）：
+
+| 表名 | 说明 |
+|------|------|
+| `users` | 用户信息 + ECDH/OPK 公钥 |
+| `prekeys` | X3DH 一次性预密钥池 |
+| `friends` | 好友关系（pending/accepted/blocked） |
+| `groups` / `group_members` | 群组 + 成员 |
+| `messages` | 加密消息（离线缓冲，送达后可删） |
+| `moments` | 朋友圈动态（文字 ≤1024 字） |
+| `moment_images` | 动态图片（每条最多 9 张） |
+| `moment_likes` | 点赞（每用户每条唯一） |
+| `moment_comments` | 评论（最多 512 字/条） |
+
+---
+
 ## 安全模型
 
 ```
 注册时:
   设备本地生成 IK（身份密钥）+ SPK（签名预密钥）+ 10x OPK（一次性预密钥）
-  公钥上传服务器，私钥仅存 IndexedDB，永不离开设备
+  公钥上传服务器，私钥四层持久化，永不离开设备
 
-首次发消息时:
-  发送方下载接收方 Prekey Bundle（IK_pub + SPK_pub + OPK_pub）
-  X3DH 四次 DH 得到 32 字节共享秘密
-  初始化 Double Ratchet，注入 ML-KEM-768 KEM 共享秘密
-  后续每条消息独立密钥（前向保密 + 后向保密）
+发送消息时:
+  发送方下载接收方 IK 公钥
+  生成临时 ECDH 密钥对（每条消息独立）
+  X25519 ECDH → 共享秘密 → XSalsa20-Poly1305 加密
+  临时公钥附在消息 header 中，接收方解密后销毁
 
 服务器所见:
   ✅ 密文 blob + 路由元数据（发件人/收件人 UUID）
-  ❌ 明文 / 私钥 / 会话状态 / 通话内容
+  ❌ 明文 / 私钥 / 临时密钥 / 通话内容
 ```
 
 ---
@@ -273,6 +296,10 @@ paperphone/
 | `JWT_SECRET` | JWT 签名密钥（**生产必改**） | dev_secret |
 | `DB_HOST` / `DB_PASS` / `DB_NAME` | MySQL 连接配置 | — |
 | `REDIS_HOST` / `REDIS_PASS` | Redis 连接配置 | — |
-| `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` | MinIO 对象存储 | — |
+| `R2_ACCOUNT_ID` | Cloudflare 账号 ID | — |
+| `R2_ACCESS_KEY_ID` | R2 API Token 的 Access Key | — |
+| `R2_SECRET_ACCESS_KEY` | R2 API Token 的 Secret Key | — |
+| `R2_BUCKET` | R2 Bucket 名称 | — |
+| `R2_PUBLIC_URL` | R2 公开 URL（可选），设置后文件走 CDN 直链 | — |
 | `CF_CALLS_APP_ID` | Cloudflare Calls App ID（可选） | — |
 | `CF_CALLS_APP_SECRET` | Cloudflare Calls App Secret（可选） | — |

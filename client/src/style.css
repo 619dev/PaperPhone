@@ -738,6 +738,96 @@ html, body {
   text-align: center;
 }
 
+/* ── Moments (朋友圈) ───────────────────────────────────────── */
+.page-moments { display:flex; flex-direction:column; height:100%; }
+.moments-topbar { position:sticky; top:0; z-index:10; }
+.moments-feed { flex:1; overflow-y:auto; padding-bottom:80px; }
+.moments-loading { justify-content:center; padding:20px; }
+.moments-empty { display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:60px 20px; color:var(--text-secondary); }
+
+/* Moment card */
+.moment-card { padding:16px; border-bottom:1px solid var(--border-color); background:var(--card-bg); }
+.moment-header { display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; }
+.moment-avatar { width:42px!important; height:42px!important; border-radius:6px!important; flex-shrink:0; }
+.moment-meta { flex:1; min-width:0; }
+.moment-name { font-weight:600; font-size:15px; color:var(--accent-blue, #4F8EF7); }
+.moment-time { font-size:12px; color:var(--text-secondary); margin-top:2px; }
+.moment-delete-btn { margin-left:auto; color:var(--text-secondary); font-size:16px; }
+.moment-text { font-size:15px; line-height:1.6; color:var(--text-primary); margin-bottom:10px;
+  white-space:pre-wrap; word-break:break-word; }
+
+/* Image grid */
+.moment-images { display:grid; gap:4px; margin-bottom:10px; border-radius:8px; overflow:hidden; }
+.moment-images.count-1 { grid-template-columns:1fr; max-width:240px; }
+.moment-images.count-2 { grid-template-columns:1fr 1fr; }
+.moment-images.count-3 { grid-template-columns:1fr 1fr 1fr; }
+.moment-images.count-4 { grid-template-columns:1fr 1fr; }
+.moment-images.count-5 { grid-template-columns:1fr 1fr 1fr; }
+.moment-images.count-6 { grid-template-columns:1fr 1fr 1fr; }
+.moment-images.count-7 { grid-template-columns:1fr 1fr 1fr; }
+.moment-images.count-8 { grid-template-columns:1fr 1fr 1fr; }
+.moment-images.count-9 { grid-template-columns:1fr 1fr 1fr; }
+.moment-img { width:100%; aspect-ratio:1; object-fit:cover; cursor:zoom-in; transition:opacity .2s; }
+.moment-img:hover { opacity:.9; }
+
+/* Actions */
+.moment-actions { display:flex; gap:16px; margin-bottom:8px; }
+.moment-like-btn, .moment-comment-btn { background:none; border:none; font-size:14px;
+  color:var(--text-secondary); cursor:pointer; padding:4px 0; transition:color .2s; }
+.moment-like-btn.liked { color:#FF3B5C; }
+.moment-like-btn:hover, .moment-comment-btn:hover { color:var(--text-primary); }
+
+/* Comments */
+.moment-comments { margin-top:4px; }
+.moment-comment-item { font-size:13px; line-height:1.5; padding:2px 0;
+  display:flex; gap:4px; align-items:baseline; }
+.comment-author { color:var(--accent-blue, #4F8EF7); font-weight:500; flex-shrink:0; }
+.comment-text { color:var(--text-primary); word-break:break-word; flex:1; }
+.comment-del-btn { color:var(--text-quaternary); font-size:11px; flex-shrink:0; }
+.moment-comment-input-row { display:flex; gap:8px; margin-top:8px; }
+.moment-comment-input { flex:1; background:var(--input-bg); border:1px solid var(--border-color);
+  border-radius:8px; padding:6px 10px; font-size:14px; color:var(--text-primary); }
+.moment-comment-send { background:var(--accent-blue, #4F8EF7); color:#fff; border:none;
+  border-radius:8px; padding:6px 12px; font-size:14px; cursor:pointer; }
+
+/* Compose modal */
+.compose-modal { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.5);
+  display:flex; align-items:flex-end; }
+.compose-sheet { background:var(--card-bg); border-radius:20px 20px 0 0;
+  width:100%; max-height:90vh; overflow-y:auto; padding-bottom:env(safe-area-inset-bottom,20px); }
+.compose-header { display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px; border-bottom:1px solid var(--border-color); }
+.compose-textarea { width:100%; min-height:120px; background:transparent; border:none;
+  padding:14px 16px; font-size:16px; color:var(--text-primary); resize:none; outline:none;
+  font-family:inherit; box-sizing:border-box; }
+.compose-char-count { text-align:right; font-size:12px; color:var(--text-quaternary);
+  padding:0 16px 8px; }
+.compose-images { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 8px; }
+.compose-thumb { position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; }
+.compose-thumb img { width:100%; height:100%; object-fit:cover; }
+.compose-thumb-rm { position:absolute; top:2px; right:2px; background:rgba(0,0,0,.6);
+  color:#fff; border:none; border-radius:50%; width:20px; height:20px;
+  font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.compose-add-img-btn { display:flex; align-items:center; gap:8px; margin:0 16px 12px;
+  padding:10px 14px; background:var(--input-bg); border:1px dashed var(--border-color);
+  border-radius:10px; font-size:15px; color:var(--text-secondary); cursor:pointer; width:calc(100% - 32px); }
+.compose-add-img-btn:hover { border-color:var(--accent-blue, #4F8EF7);
+  color:var(--accent-blue, #4F8EF7); }
+
+/* Lightbox */
+.lightbox-overlay { position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,.94);
+  display:flex; align-items:center; justify-content:center; }
+.lightbox-img { max-width:94vw; max-height:88vh; object-fit:contain; border-radius:4px; }
+.lightbox-btn { position:absolute; top:50%; transform:translateY(-50%);
+  background:rgba(255,255,255,.15); color:#fff; border:none; border-radius:50%;
+  width:44px; height:44px; font-size:24px; cursor:pointer; }
+.lightbox-btn:first-of-type { left:16px; }
+.lightbox-btn:last-of-type { right:16px; }
+.lightbox-close { position:absolute; top:16px; right:16px; background:rgba(255,255,255,.15);
+  color:#fff; border:none; border-radius:50%; width:36px; height:36px;
+  font-size:18px; cursor:pointer; }
+
 /* ── Profile Page ──────────────────────────────────────────── */
 .profile-hero {
   padding: 24px 16px 20px;

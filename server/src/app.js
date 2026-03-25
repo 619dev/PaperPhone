@@ -10,6 +10,7 @@ const uploadRouter = require('./routes/upload');
 const filesRouter  = require('./routes/files');
 const messagesRouter = require('./routes/messages');
 const callsRouter = require('./routes/calls');
+const momentsRouter = require('./routes/moments');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api/upload', uploadRouter);
 app.use('/api/files',  filesRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/calls', callsRouter);
+app.use('/api/moments', momentsRouter);
 
 // Serve client build (for production)
 app.use(express.static(path.join(__dirname, '../../client')));
