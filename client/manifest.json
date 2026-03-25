@@ -1,0 +1,14 @@
+{
+  "name": "PaperPhone",
+  "short_name": "PaperPhone",
+  "description": "端对端加密即时通讯 — 前向保密 + 抗量子",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111111",
+  "theme_color": "#07C160",
+  "icons": [
+    { "src": "/public/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/public/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PaperPhone">
+  <meta name="theme-color" content="#07C160">
+  <meta name="description" content="PaperPhone - 端对端加密即时通讯">
+  <title>PaperPhone</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/public/icons/icon-192.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- libsodium (WebAssembly crypto) -->
+  <script>
+    window._sodiumPromise = new Promise(resolve => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.13/dist/modules/libsodium-wrappers.min.js';
+      s.onload = async () => {
+        await window.sodium.ready;
+        window._sodium = window.sodium;
+        resolve(window.sodium);
+      };
+      document.head.appendChild(s);
+    });
+  </script>
+
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/app.js"></script>
+
+  <!-- Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
