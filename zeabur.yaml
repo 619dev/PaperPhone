@@ -84,6 +84,8 @@ spec:
           MYSQL_ROOT_PASSWORD:
             default: ${PASSWORD}
             expose: true
+          MYSQL_ROOT_HOST:
+            default: "%"
           MYSQL_DATABASE:
             default: paperphone
             expose: true
