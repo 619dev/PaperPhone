@@ -253,9 +253,9 @@ spec:
           DB_PORT:
             default: ${MYSQL_PORT}
           DB_USER:
-            default: root
+            default: paperphone
           DB_PASS:
-            default: ${MYSQL_ROOT_PASSWORD}
+            default: ${MYSQL_PASSWORD}
           DB_NAME:
             default: ${MYSQL_DATABASE}
           REDIS_HOST:
@@ -299,7 +299,7 @@ spec:
             type: HTTP
         env:
           SERVER_HOST:
-            default: ${SERVER_HOST}
+            default: ${CONTAINER_HOSTNAME}
 
 localization:
   zh-CN:
