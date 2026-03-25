@@ -10,7 +10,7 @@ const { connectRedis }     = require('./db/redis');
 const PORT = process.env.PORT || 3000;
 
 async function initSchema() {
-  const schemaPath = path.join(__dirname, '../../db/schema.sql');
+  const schemaPath = path.join(__dirname, '../db/schema.sql');
   const sql = fs.readFileSync(schemaPath, 'utf8');
   const db  = getDb();
   // Strip comments, split on semicolons, execute each statement
