@@ -908,8 +908,267 @@ html, body {
 .btn-green { background: var(--green); color: #fff; box-shadow: 0 2px 8px var(--green-glow); }
 .btn-outline { background: var(--surface-2); color: var(--text); border: 1.5px solid var(--border); }
 
-/* ── Utils ─────────────────────────────────────────────────── */
 .flex-1   { flex: 1; min-width: 0; }
 .hidden   { display: none !important; }
 .text-muted { color: var(--text-muted); }
 .text-green { color: var(--green); }
+
+/* ── Bubble Timestamp ──────────────────────────────────────── */
+.bubble-ts {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin: 1px 14px 4px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  user-select: none;
+}
+.bubble-ts-out {
+  justify-content: flex-end;
+}
+.msg-row.in  .bubble-ts { justify-content: flex-start; padding-left: 48px; }
+.msg-row.out .bubble-ts { justify-content: flex-end; }
+
+/* ── Message Status (✓ sent, ✓✓ delivered) ─────────────────── */
+.msg-status {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  transition: color .3s;
+}
+.msg-status-sent      { color: var(--text-muted); }
+.msg-status-delivered { color: var(--green); }
+
+/* ── Tab Badge (contacts red dot) ──────────────────────────── */
+.tab-badge-sm {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 18px);
+  width: 7px;
+  height: 7px;
+  background: var(--red);
+  border-radius: 50%;
+  border: 1.5px solid var(--tab-bg);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Call UI
+   ══════════════════════════════════════════════════════════════ */
+
+/* Overlay root */
+#pp-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+}
+
+/* ── Base screen ──────────────────────────────────────────── */
+.call-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #fff;
+  user-select: none;
+}
+
+.call-screen.call-minimized {
+  height: auto;
+  bottom: 0;
+  top: auto;
+  border-radius: 16px 16px 0 0;
+  position: fixed;
+  width: 100%;
+}
+
+/* ── Calling / Incoming backgrounds ──────────────────────── */
+.call-incoming,
+.call-calling {
+  background: linear-gradient(160deg, #0d0f1a 0%, #0a2a1f 55%, #07C160 150%);
+}
+.call-bg-blur {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 50% at 50% 30%, rgba(7,193,96,.25), transparent);
+  pointer-events: none;
+}
+
+.call-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  padding-top: max(80px, calc(var(--safe-top) + 60px));
+  gap: 8px;
+}
+
+/* ── Avatar ───────────────────────────────────────────────── */
+.call-avatar-wrap { display: flex; align-items: center; justify-content: center; }
+.avatar-call {
+  width: 100px; height: 100px; border-radius: 50%;
+  font-size: 40px; font-weight: 700;
+  box-shadow: 0 0 0 8px rgba(255,255,255,.15), 0 0 40px rgba(7,193,96,.4);
+  animation: callAvatarPulse 2s ease-in-out infinite;
+}
+.avatar-call-lg {
+  width: 130px; height: 130px; border-radius: 50%;
+  font-size: 52px; font-weight: 700;
+  box-shadow: 0 0 0 10px rgba(255,255,255,.1);
+}
+@keyframes callAvatarPulse {
+  0%, 100% { box-shadow: 0 0 0 8px rgba(255,255,255,.15), 0 0 40px rgba(7,193,96,.4); }
+  50%       { box-shadow: 0 0 0 16px rgba(255,255,255,.07), 0 0 60px rgba(7,193,96,.6); }
+}
+
+.call-name     { font-size: 26px; font-weight: 700; letter-spacing: -.5px; margin-top: 16px; text-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.call-subtitle { font-size: 14px; opacity: .75; margin-top: 4px; }
+.call-pulse    { animation: subtitlePulse 1.4s ease-in-out infinite; }
+@keyframes subtitlePulse {
+  0%,100% { opacity: .5; } 50% { opacity: 1; }
+}
+
+/* ── Incoming buttons ─────────────────────────────────────── */
+.call-actions-incoming {
+  position: absolute;
+  bottom: max(60px, calc(var(--safe-bottom) + 40px));
+  left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+}
+.call-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+}
+.call-action-btn > svg,
+.call-action-btn > span:first-child { /* icon */
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.call-reject  > svg { background: var(--red);  box-shadow: 0 4px 20px rgba(255,59,48,.5); }
+.call-accept  > svg { background: var(--green); box-shadow: 0 4px 20px rgba(7,193,96,.5);  }
+.call-accept-voice > svg { background: #636366; }
+
+.call-action-btn:active > svg { transform: scale(.92); }
+
+/* ── Active call — video ──────────────────────────────────── */
+.call-active {
+  background: #000;
+}
+
+/* Remote video grid */
+.call-remote-grid {
+  flex: 1;
+  display: grid;
+  background: #1a1a1a;
+  overflow: hidden;
+}
+.call-remote-grid[data-count="0"] { background: #000; }
+.call-remote-grid[data-count="1"] { grid-template-columns: 1fr; }
+.call-remote-grid[data-count="2"] { grid-template-columns: 1fr 1fr; }
+.call-remote-grid[data-count="3"],
+.call-remote-grid[data-count="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.call-remote-grid[data-count="5"],
+.call-remote-grid[data-count="6"] { grid-template-columns: 1fr 1fr 1fr; }
+
+.call-remote-slot { position: relative; overflow: hidden; background: #222; }
+.call-remote-video { width:100%; height:100%; object-fit:cover; display:block; }
+
+/* Local PiP */
+.call-pip-wrap {
+  position: absolute;
+  right: 14px;
+  bottom: calc(var(--safe-bottom) + 130px);
+  width: 100px;
+  height: 140px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,.6);
+  z-index: 10;
+  border: 2px solid rgba(255,255,255,.2);
+}
+.call-pip-video { width:100%; height:100%; object-fit:cover; display:block; }
+.call-pip-switch {
+  position: absolute; bottom: 4px; right: 4px;
+  background: rgba(0,0,0,.5); border: none; border-radius: 50%;
+  width: 26px; height: 26px; font-size: 13px;
+  color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
+/* Voice-only mode */
+.call-voice-only .call-remote-grid { background: linear-gradient(160deg, #0d0f1a, #0a2a1f); }
+.call-voice-avatar {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+}
+
+/* ── Topbar (in-call) ─────────────────────────────────────── */
+.call-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: max(16px, calc(var(--safe-top) + 8px)) 12px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
+  z-index: 5;
+}
+.call-topbar-back {
+  background: none; border: none; color: rgba(255,255,255,.8);
+  font-size: 22px; cursor: pointer; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content:center;
+  border-radius: 50%;
+  transform: rotate(-90deg);
+}
+.call-topbar-name  { font-size: 16px; font-weight: 600; }
+.call-topbar-timer { font-size: 13px; opacity: .7; }
+
+/* ── Controls bar ─────────────────────────────────────────── */
+.call-controls {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 16px 24px max(28px, calc(var(--safe-bottom) + 16px));
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 100%);
+  z-index: 5;
+}
+.call-ctrl-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer; color: #fff; font-family: inherit;
+  transition: transform .12s;
+}
+.call-ctrl-btn:active { transform: scale(.88); }
+.ctrl-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: rgba(255,255,255,.18);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  transition: background .15s;
+}
+.call-ctrl-btn.ctrl-active .ctrl-icon { background: rgba(255,255,255,.35); }
+.ctrl-label { font-size: 11px; font-weight: 500; opacity: .85; }
+.call-ctrl-end .ctrl-icon { background: var(--red); box-shadow: 0 3px 12px rgba(255,59,48,.45); }
+
+/* ── Chat topbar call buttons ─────────────────────────────── */
+.topbar-call-btns {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}

@@ -10,6 +10,8 @@ import { renderContacts } from './pages/contacts.js';
 import { renderDiscover } from './pages/discover.js';
 import { renderProfile } from './pages/profile.js';
 import { t, onLangChange } from './i18n.js';
+import { callManager } from './services/webrtc.js';
+import { initCallUI } from './pages/call.js';
 
 // ── Global State ──────────────────────────────────────────────────────────
 export const state = {
@@ -19,6 +21,8 @@ export const state = {
   contacts: [],
   activeTab: 'chats',
   chatView: null,     // { id, type } or null
+  contactBadge: 0,    // pending friend requests count
+  call: null,         // active call info or null
 };
 
 const root = document.getElementById('app');
@@ -74,15 +78,20 @@ function buildTabBar(active) {
     const item = document.createElement('div');
     item.className = `tab-item ${tab.id === active ? 'active' : ''}`;
     item.id = `tab-${tab.id}`;
-    const totalUnread = state.chats.reduce((n, c) => n + (c.unread || 0), 0);
+    const chatUnread = state.chats.reduce((n, c) => n + (c.unread || 0), 0);
+    const contactBadge = tab.id === 'contacts' && state.contactBadge > 0;
     item.innerHTML = `
       <div class="tab-icon">
         ${tab.icon}
-        ${tab.id === 'chats' && totalUnread > 0
-          ? `<div class="tab-badge">${totalUnread > 99 ? '99+' : totalUnread}</div>` : ''}
+        ${tab.id === 'chats' && chatUnread > 0
+          ? `<div class="tab-badge">${chatUnread > 99 ? '99+' : chatUnread}</div>` : ''}
+        ${contactBadge ? '<div class="tab-badge tab-badge-sm"></div>' : ''}
       </div>
       <span class="tab-label">${tab.label}</span>`;
-    item.addEventListener('click', () => navigateTo(tab.id));
+    item.addEventListener('click', () => {
+      if (tab.id === 'contacts') state.contactBadge = 0;
+      navigateTo(tab.id);
+    });
     bar.appendChild(item);
   });
   return bar;
@@ -167,8 +176,47 @@ function setupGlobalSocketHandlers() {
       });
     }
   });
-  onEvent('friend_request', () => showToast(t('newFriendRequest')));
+  onEvent('friend_request', () => {
+    showToast(t('newFriendRequest'));
+    state.contactBadge++;
+    // Re-render tab bar to show badge
+    const tabBar = root.querySelector('.tabbar');
+    if (tabBar) root.replaceChild(buildTabBar(state.activeTab), tabBar);
+  });
   onEvent('friend_accepted', () => showToast(t('friendAccepted')));
+
+  // Real-time online/offline status
+  onEvent('online', ({ user_id }) => {
+    const contact = state.contacts.find(c => c.id === user_id);
+    if (contact) contact.is_online = true;
+  });
+  onEvent('offline', ({ user_id }) => {
+    const contact = state.contacts.find(c => c.id === user_id);
+    if (contact) contact.is_online = false;
+  });
+
+  // ── Call signaling → callManager ─────────────────────────────────────
+  onEvent('call_offer', msg => {
+    const contact = state.contacts.find(c => c.id === msg.from);
+    callManager.handleOffer({
+      ...msg,
+      name: contact ? (contact.nickname || contact.username) : msg.from,
+      avatar: contact?.avatar || null,
+    });
+  });
+  onEvent('call_answer',       msg => callManager.handleAnswer(msg));
+  onEvent('ice_candidate',     msg => callManager.handleIceCandidate(msg));
+  onEvent('call_invite',       msg => {
+    const contact = state.contacts.find(c => c.id === msg.from);
+    callManager.handleCallInvite({
+      ...msg,
+      name: contact ? (contact.nickname || contact.username) : msg.from,
+      avatar: contact?.avatar || null,
+    });
+  });
+  onEvent('call_end',    msg => callManager.handleCallEnd(msg));
+  onEvent('call_reject', msg => callManager.handleCallReject(msg));
+  onEvent('call_cancel', ()  => callManager.handleCallCancel());
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────
@@ -198,6 +246,8 @@ async function init() {
     localStorage.removeItem('pp_token');
   }
   render();
+  // Init call UI overlay system
+  initCallUI();
 }
 
 init();

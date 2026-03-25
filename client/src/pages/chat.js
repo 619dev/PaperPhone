@@ -7,6 +7,7 @@ import { send, onEvent, offEvent } from '../socket.js';
 import { getKey, setKey } from '../crypto/keystore.js';
 import { x3dhSend, x3dhReceive, ratchetInit, ratchetEncrypt, ratchetDecrypt } from '../crypto/ratchet.js';
 import { t } from '../i18n.js';
+import { callManager } from '../services/webrtc.js';
 
 const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -24,10 +25,44 @@ export async function renderChat(root, chat) {
       </svg>
     </button>
     <div class="topbar-title" id="chat-title">${esc(chat.name)}</div>
-    <div style="min-width:44px"></div>
+    <div class="topbar-call-btns">
+      <button class="topbar-btn" id="voice-call-btn" title="${t('callVoice')}">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.27-.27.67-.36 1.02-.23 1.12.45 2.34.68 3.58.68.55 0 1 .45 1 1V20c0 .55-.45 1-1 1C10.3 21 3 13.7 3 4.5c0-.55.45-1 1-1H8c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.1.35.02.74-.22 1.02L6.6 10.8z"/>
+        </svg>
+      </button>
+      ${chat.type === 'private' ? `
+      <button class="topbar-btn" id="video-call-btn" title="${t('callVideo')}">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+        </svg>
+      </button>` : ''}
+    </div>
   `;
   root.appendChild(topbar);
   topbar.querySelector('#back-btn').onclick = goBack;
+
+  // Call buttons
+  topbar.querySelector('#voice-call-btn').onclick = async () => {
+    if (callManager.state !== 'idle') { showToast(t('callBusy')); return; }
+    try {
+      await callManager.startCall({
+        peerId: chat.id, name: chat.name, avatar: chat.avatar,
+        isVideo: false,
+        isGroup: chat.type === 'group', groupId: chat.id,
+        peerIds: chat.type === 'group' ? (state.contacts.map(c => c.id)) : [],
+      });
+    } catch (err) { showToast(t('callMediaFailed') + ': ' + err.message); }
+  };
+  topbar.querySelector('#video-call-btn')?.addEventListener('click', async () => {
+    if (callManager.state !== 'idle') { showToast(t('callBusy')); return; }
+    try {
+      await callManager.startCall({
+        peerId: chat.id, name: chat.name, avatar: chat.avatar,
+        isVideo: true, isGroup: false,
+      });
+    } catch (err) { showToast(t('callMediaFailed') + ': ' + err.message); }
+  });
 
   // ── Messages area ────────────────────────────────────────────
   const msgArea = document.createElement('div');
@@ -73,9 +108,12 @@ export async function renderChat(root, chat) {
   let ratchetState = await getKey(`session_${chat.id}`);
 
   // ── Render bubble ─────────────────────────────────────────────
+  let _msgIdMap = {};  // msgId -> row element (for ack updates)
+
   function addBubble(text, fromMe, ts, msgType = 'text', extra = {}) {
     const row = document.createElement('div');
     row.className = `msg-row ${fromMe ? 'out' : 'in'}`;
+    if (extra.msgId) _msgIdMap[extra.msgId] = row;
 
     let content = '';
     if (msgType === 'image') {
@@ -105,6 +143,21 @@ export async function renderChat(root, chat) {
     }
 
     row.appendChild(bubble);
+
+    // Timestamp + status
+    const timeEl = document.createElement('div');
+    timeEl.className = `bubble-ts${fromMe ? ' bubble-ts-out' : ''}`;
+    const d = ts ? new Date(ts) : new Date();
+    timeEl.textContent = d.toTimeString().slice(0, 5);
+    if (fromMe) {
+      const statusEl = document.createElement('span');
+      statusEl.className = 'msg-status msg-status-sent';
+      statusEl.textContent = '✓';
+      if (extra.msgId) statusEl.dataset.ackId = extra.msgId;
+      timeEl.appendChild(statusEl);
+    }
+    row.appendChild(timeEl);
+
     msgArea.appendChild(row);
     msgArea.scrollTop = msgArea.scrollHeight;
   }
@@ -151,7 +204,7 @@ export async function renderChat(root, chat) {
     if (!text.trim() && msgType === 'text') return;
     await ensureSession();
 
-    let ciphertext = text, header = null;
+    let ciphertext = text, header = null, msgId = crypto.randomUUID();
     if (ratchetState) {
       try {
         const res = await ratchetEncrypt(ratchetState, text);
@@ -163,12 +216,13 @@ export async function renderChat(root, chat) {
       } catch (err) { showToast(t('encFailed') + ': ' + err.message); return; }
     }
 
-    addBubble(text, true, Date.now(), msgType);
+    addBubble(text, true, Date.now(), msgType, { msgId });
     send({
       type: 'message',
       to: chat.type === 'private' ? chat.id : undefined,
       group_id: chat.type === 'group' ? chat.id : undefined,
       msg_type: msgType, ciphertext, header,
+      client_id: msgId,
     });
     const c = state.chats.find(s => s.id === chat.id);
     if (c) { c.lastMsg = msgType === 'text' ? text : t('imageLabel'); c.lastTs = Date.now(); }
@@ -187,6 +241,15 @@ export async function renderChat(root, chat) {
     const hasText = !!inputEl.value.trim();
     sendBtn.classList.toggle('hidden', !hasText);
     emojiBtn.classList.toggle('hidden', hasText);
+    // Send typing indicator (debounced)
+    clearTimeout(inputEl._typingTimer);
+    if (hasText) {
+      send({ type: 'typing',
+        to: chat.type === 'private' ? chat.id : undefined,
+        group_id: chat.type === 'group' ? chat.id : undefined,
+      });
+      inputEl._typingTimer = setTimeout(() => {}, 3000);
+    }
   });
 
   inputEl.addEventListener('keydown', e => {
@@ -260,24 +323,63 @@ export async function renderChat(root, chat) {
   }
 
   // Emoji picker
-  const EMOJIS = ['😊','😂','🥰','😎','👍','🎉','❤️','🔥','😭','🙏','💪','✨','😅','🤣','😍','🎊','🥳','😇'];
+  const EMOJIS = [
+    // Smileys
+    '😊','😂','🥰','😎','😭','😅','😇','🤣','😍','😘','🥳','😁','🤗','😜','🤩','🥺',
+    // Gestures / People
+    '👍','👎','👏','🙌','🙏','💪','🤝','✌️','🤙','🫶','❤️','💔','💕','💯','🔥','✨',
+    // Objects / Nature
+    '🎉','🎊','🎁','🎈','🎶','🎵','📸','💡','🌟','⭐','🌈','☀️','🌙','❄️','🍕','🍜',
+    // Symbols
+    '😈','👻','🤖','💩','🐱','🐶','🌸','🌺','🍀','🦋','💎','🚀','⚡','🌊','🏆','🎯',
+  ];
+  const EMOJI_LABELS = ['😊', '👍', '🎉', '😈'];
   let emojiPanel = null;
   emojiBtn.addEventListener('click', () => {
     if (emojiPanel) { emojiPanel.remove(); emojiPanel = null; return; }
     emojiPanel = document.createElement('div');
+    // Toolbar is at the bottom; place the panel just above it
+    const toolbarRect = toolbar.getBoundingClientRect();
     emojiPanel.style.cssText = `
-      position:fixed;bottom:calc(var(--tab-h, 60px) + 60px);
-      left:0;right:0;background:var(--surface);
-      border-top:.5px solid var(--border);padding:12px 16px;
-      display:flex;flex-wrap:wrap;gap:6px;z-index:200;
-      box-shadow:var(--shadow-lg);`;
-    EMOJIS.forEach(em => {
+      position:fixed;
+      bottom:${window.innerHeight - toolbarRect.top}px;
+      left:0;right:0;
+      background:var(--surface);
+      border-top:.5px solid var(--border);
+      padding:8px 12px 12px;
+      z-index:200;
+      box-shadow:var(--shadow-lg);
+      max-height:180px;
+      overflow-y:auto;
+    `;
+    // Category tabs (simple labels)
+    const cats = document.createElement('div');
+    cats.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;overflow-x:auto;';
+    const all = ['all', ...EMOJI_LABELS];
+    const rows = [EMOJIS.slice(0,16), EMOJIS.slice(16,32), EMOJIS.slice(32,48), EMOJIS.slice(48)];
+    all.forEach((lbl, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = i === 0 ? '⊞' : lbl;
+      btn.style.cssText = 'background:var(--surface-2);border:none;border-radius:8px;padding:4px 8px;font-size:14px;cursor:pointer;';
+      btn.onclick = () => {
+        grid.innerHTML = '';
+        const subset = i === 0 ? EMOJIS : rows[i - 1];
+        subset.forEach(em => addEmojiBtn(em));
+      };
+      cats.appendChild(btn);
+    });
+    emojiPanel.appendChild(cats);
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
+    function addEmojiBtn(em) {
       const btn = document.createElement('button');
       btn.textContent = em;
-      btn.style.cssText = 'background:none;border:none;font-size:26px;cursor:pointer;padding:6px;border-radius:8px;line-height:1;';
+      btn.style.cssText = 'background:none;border:none;font-size:26px;cursor:pointer;padding:4px;border-radius:8px;line-height:1;';
       btn.onclick = () => { inputEl.value += em; inputEl.dispatchEvent(new Event('input')); emojiPanel.remove(); emojiPanel = null; };
-      emojiPanel.appendChild(btn);
-    });
+      grid.appendChild(btn);
+    }
+    EMOJIS.forEach(em => addEmojiBtn(em));
+    emojiPanel.appendChild(grid);
     document.body.appendChild(emojiPanel);
   });
 
@@ -308,9 +410,21 @@ export async function renderChat(root, chat) {
       } catch {}
     }
     addBubble(text, false, msg.ts, msg.msg_type || 'text');
+    // Update chat list last message time
+    const c = state.chats.find(s => s.id === chat.id);
+    if (c) c.lastTs = msg.ts;
   }
 
   onEvent('message', handleIncoming);
+
+  // Handle ack — mark message as delivered
+  onEvent('ack', ({ msg_id }) => {
+    const statusEl = document.querySelector(`[data-ack-id="${CSS.escape(msg_id)}"]`);
+    if (statusEl) {
+      statusEl.textContent = '✓✓';
+      statusEl.classList.replace('msg-status-sent', 'msg-status-delivered');
+    }
+  });
 
   let typingTimer;
   onEvent('typing', ({ from }) => {

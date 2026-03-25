@@ -63,6 +63,9 @@ export const api = {
   privateHistory: pid => req('GET', `/api/messages/private/${pid}`),
   groupHistory:   gid => req('GET', `/api/messages/group/${gid}`),
 
+  // Calls / TURN
+  turnCredentials: () => req('GET', '/api/calls/turn'),
+
   // Upload
   upload: file => {
     const fd = new FormData();

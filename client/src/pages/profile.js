@@ -1,7 +1,7 @@
 /**
  * Profile / Settings page — i18n v2
  */
-import { state, showToast, avatarEl, render as appRender } from '../app.js';
+import { state, showToast, avatarEl } from '../app.js';
 import { api, clearToken } from '../api.js';
 import { disconnect } from '../socket.js';
 import { t, getLang, getLangName, getLangFlag, getSupportedLangs, setLang, onLangChange, offLangChange } from '../i18n.js';

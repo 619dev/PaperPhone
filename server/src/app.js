@@ -8,6 +8,7 @@ const friendsRouter = require('./routes/friends');
 const groupsRouter = require('./routes/groups');
 const uploadRouter = require('./routes/upload');
 const messagesRouter = require('./routes/messages');
+const callsRouter = require('./routes/calls');
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/api/friends', friendsRouter);
 app.use('/api/groups', groupsRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/messages', messagesRouter);
+app.use('/api/calls', callsRouter);
 
 // Serve client build (for production)
 app.use(express.static(path.join(__dirname, '../../client')));

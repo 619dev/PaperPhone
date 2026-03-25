@@ -169,6 +169,24 @@ function initWsServer(httpServer) {
           sendToUser(msg.to, payload);
         }
       }
+
+      // ── CALL SIGNALING ────────────────────────────────────────────────
+      // Relay call_offer, call_answer, call_reject, call_cancel,
+      //        call_end, ice_candidate, call_invite transparently.
+      const CALL_RELAY_TYPES = [
+        'call_offer', 'call_answer', 'call_reject', 'call_cancel',
+        'call_end', 'ice_candidate', 'call_invite',
+      ];
+      if (CALL_RELAY_TYPES.includes(msg.type)) {
+        const envelope = { ...msg, from: ws.userId };
+        if (msg.to) {
+          // 1-to-1 signaling
+          sendToUser(msg.to, envelope);
+        } else if (msg.group_id) {
+          // Group call — broadcast to all group members except sender
+          await sendToGroup(msg.group_id, envelope, ws.userId);
+        }
+      }
     });
 
     ws.on('close', async () => {

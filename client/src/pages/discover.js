@@ -1,6 +1,7 @@
 /**
  * Discover page — i18n v2
  */
+import { showToast } from '../app.js';
 import { t } from '../i18n.js';
 
 export function renderDiscover(root) {
@@ -13,7 +14,7 @@ export function renderDiscover(root) {
     <div style="padding:16px 0">
 
       <div class="discover-group">
-        <div class="discover-item" id="d-moments">
+        <div class="discover-item" data-feature="moments">
           <div class="discover-icon" style="background:#07C160">🌐</div>
           <span class="discover-label">${t('moments')}</span>
           <span class="discover-chevron">›</span>
@@ -21,12 +22,12 @@ export function renderDiscover(root) {
       </div>
 
       <div class="discover-group">
-        <div class="discover-item">
+        <div class="discover-item" data-feature="search">
           <div class="discover-icon" style="background:#007AFF">🔍</div>
           <span class="discover-label">${t('searchFn')}</span>
           <span class="discover-chevron">›</span>
         </div>
-        <div class="discover-item">
+        <div class="discover-item" data-feature="news">
           <div class="discover-icon" style="background:#FF9500">📰</div>
           <span class="discover-label">${t('news')}</span>
           <span class="discover-chevron">›</span>
@@ -34,12 +35,12 @@ export function renderDiscover(root) {
       </div>
 
       <div class="discover-group">
-        <div class="discover-item">
+        <div class="discover-item" data-feature="games">
           <div class="discover-icon" style="background:#AF52DE">🎮</div>
           <span class="discover-label">${t('games')}</span>
           <span class="discover-chevron">›</span>
         </div>
-        <div class="discover-item">
+        <div class="discover-item" data-feature="nearby">
           <div class="discover-icon" style="background:#FF3B30">📍</div>
           <span class="discover-label">${t('nearby')}</span>
           <span class="discover-chevron">›</span>
@@ -47,7 +48,7 @@ export function renderDiscover(root) {
       </div>
 
       <div class="discover-group">
-        <div class="discover-item">
+        <div class="discover-item" data-feature="shopping">
           <div class="discover-icon" style="background:#34C759">🛍</div>
           <span class="discover-label">${t('shopping')}</span>
           <span class="discover-chevron">›</span>
@@ -56,4 +57,9 @@ export function renderDiscover(root) {
 
     </div>
   `;
+
+  // All items show a coming-soon toast
+  root.querySelectorAll('.discover-item').forEach(el => {
+    el.addEventListener('click', () => showToast(t('comingSoon')));
+  });
 }
