@@ -65,241 +65,238 @@ spec:
         The Bearer token / App Secret paired with CF_CALLS_APP_ID above.
         Leave blank if you are not using Cloudflare TURN.
 
-services:
-  # ── MySQL 8 ───────────────────────────────────────────────────────
-  - name: MySQL
-    icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/mysql.svg
-    template: PREBUILT
-    spec:
-      source:
-        image: mysql:8.0
-      ports:
-        - id: database
-          port: 3306
-          type: TCP
-      volumes:
-        - id: mysql-data
-          dir: /var/lib/mysql
-      env:
-        MYSQL_ROOT_PASSWORD:
-          default: ${PASSWORD}
-          expose: true
-        MYSQL_DATABASE:
-          default: paperphone
-          expose: true
-          readonly: true
-        MYSQL_USER:
-          default: paperphone
-          expose: true
-          readonly: true
-        MYSQL_PASSWORD:
-          default: ${PASSWORD}
-          expose: true
-        MYSQL_HOST:
-          default: ${CONTAINER_HOSTNAME}
-          expose: true
-          readonly: true
-        MYSQL_PORT:
-          default: ${DATABASE_PORT}
-          expose: true
-          readonly: true
-      instructions:
-        - type: TEXT
-          title: MySQL Host
-          content: ${MYSQL_HOST}
-          category: Connection
-        - type: TEXT
-          title: MySQL Port
-          content: ${MYSQL_PORT}
-          category: Connection
-        - type: PASSWORD
-          title: MySQL Root Password
-          content: ${MYSQL_ROOT_PASSWORD}
-          category: Credentials
-        - type: PASSWORD
-          title: MySQL User Password
-          content: ${MYSQL_PASSWORD}
-          category: Credentials
+  services:
+    # ── MySQL 8 ───────────────────────────────────────────────────────
+    - name: MySQL
+      icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/mysql.svg
+      template: PREBUILT
+      spec:
+        source:
+          image: mysql:8.0
+        ports:
+          - id: database
+            port: 3306
+            type: TCP
+        volumes:
+          - id: data
+            dir: /var/lib/mysql
+        env:
+          MYSQL_ROOT_PASSWORD:
+            default: ${PASSWORD}
+          MYSQL_DATABASE:
+            default: paperphone
+            expose: true
+            readonly: true
+          MYSQL_USER:
+            default: paperphone
+            expose: true
+            readonly: true
+          MYSQL_PASSWORD:
+            default: ${PASSWORD}
+            expose: true
+          MYSQL_HOST:
+            default: ${CONTAINER_HOSTNAME}
+            expose: true
+            readonly: true
+          MYSQL_PORT:
+            default: ${DATABASE_PORT}
+            expose: true
+            readonly: true
+        instructions:
+          - type: TEXT
+            title: MySQL Host
+            content: ${PORT_FORWARDED_HOSTNAME}
+            category: Hostname & Port
+          - type: TEXT
+            title: MySQL Port
+            content: ${DATABASE_PORT_FORWARDED_PORT}
+            category: Hostname & Port
+          - type: TEXT
+            title: MySQL User
+            content: ${MYSQL_USER}
+            category: Credentials
+          - type: PASSWORD
+            title: MySQL Password
+            content: ${MYSQL_PASSWORD}
+            category: Credentials
+          - type: TEXT
+            title: MySQL Database
+            content: ${MYSQL_DATABASE}
+            category: Credentials
 
-  # ── Redis 7 ───────────────────────────────────────────────────────
-  - name: Redis
-    icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/redis.svg
-    template: PREBUILT
-    spec:
-      source:
-        image: redis:7-alpine
-        command:
-          - redis-server
-        args:
-          - --requirepass
-          - ${REDIS_PASSWORD}
-          - --save
-          - "60"
-          - "1"
-      ports:
-        - id: database
-          port: 6379
-          type: TCP
-      volumes:
-        - id: redis-data
-          dir: /data
-      env:
-        REDIS_PASSWORD:
-          default: ${PASSWORD}
-          expose: true
-        REDIS_HOST:
-          default: ${CONTAINER_HOSTNAME}
-          expose: true
-          readonly: true
-        REDIS_PORT:
-          default: ${DATABASE_PORT}
-          expose: true
-          readonly: true
-        REDIS_URI:
-          default: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}
-          expose: true
-          readonly: true
-      instructions:
-        - type: PASSWORD
-          title: Redis Password
-          content: ${REDIS_PASSWORD}
-          category: Credentials
-        - type: TEXT
-          title: Redis Connection String
-          content: redis://:${REDIS_PASSWORD}@${PORT_FORWARDED_HOSTNAME}:${DATABASE_PORT_FORWARDED_PORT}
-          category: Connection
+    # ── Redis 7 ───────────────────────────────────────────────────────
+    - name: Redis
+      icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/redis.svg
+      template: PREBUILT
+      spec:
+        source:
+          image: redis:7-alpine
+          command:
+            - redis-server
+            - --requirepass
+            - ${REDIS_PASSWORD}
+            - --save
+            - "60"
+            - "1"
+        ports:
+          - id: database
+            port: 6379
+            type: TCP
+        volumes:
+          - id: data
+            dir: /data
+        env:
+          REDIS_PASSWORD:
+            default: ${PASSWORD}
+            expose: true
+          REDIS_HOST:
+            default: ${CONTAINER_HOSTNAME}
+            expose: true
+            readonly: true
+          REDIS_PORT:
+            default: ${DATABASE_PORT}
+            expose: true
+            readonly: true
+          REDIS_URI:
+            default: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}
+            expose: true
+            readonly: true
+        instructions:
+          - type: PASSWORD
+            title: Redis Password
+            content: ${REDIS_PASSWORD}
+            category: Credentials
+          - type: TEXT
+            title: Redis Connection String
+            content: redis://:${REDIS_PASSWORD}@${PORT_FORWARDED_HOSTNAME}:${DATABASE_PORT_FORWARDED_PORT}
 
-  # ── MinIO (Object Storage) ──────────────────────────────────────
-  - name: MinIO
-    icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/minio.svg
-    template: PREBUILT
-    spec:
-      source:
-        image: minio/minio:latest
-        command:
-          - server
-        args:
-          - /data
-          - --console-address
-          - ":9001"
-      ports:
-        - id: api
-          port: 9000
-          type: HTTP
-        - id: console
-          port: 9001
-          type: HTTP
-      volumes:
-        - id: minio-data
-          dir: /data
-      env:
-        MINIO_ROOT_USER:
-          default: minioadmin
-          expose: true
-        MINIO_ROOT_PASSWORD:
-          default: ${PASSWORD}
-          expose: true
-        MINIO_HOST:
-          default: ${CONTAINER_HOSTNAME}
-          expose: true
-          readonly: true
-        MINIO_PORT:
-          default: "9000"
-          expose: true
-          readonly: true
-        MINIO_BUCKET:
-          default: paperphone
-          expose: true
-          readonly: true
-      instructions:
-        - type: DOMAIN
-          title: MinIO Console
-          content: ${ZEABUR_CONSOLE_URL}
-          category: Management
-        - type: TEXT
-          title: Access Key
-          content: ${MINIO_ROOT_USER}
-          category: Credentials
-        - type: PASSWORD
-          title: Secret Key
-          content: ${MINIO_ROOT_PASSWORD}
-          category: Credentials
+    # ── MinIO (Object Storage) ──────────────────────────────────────
+    - name: MinIO
+      icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/minio.svg
+      template: PREBUILT
+      spec:
+        source:
+          image: minio/minio:latest
+          command:
+            - server
+            - /data
+            - --console-address
+            - ":9001"
+        ports:
+          - id: api
+            port: 9000
+            type: HTTP
+          - id: console
+            port: 9001
+            type: HTTP
+        volumes:
+          - id: data
+            dir: /data
+        env:
+          MINIO_ROOT_USER:
+            default: minioadmin
+            expose: true
+            readonly: true
+          MINIO_ROOT_PASSWORD:
+            default: ${PASSWORD}
+            expose: true
+          MINIO_HOST:
+            default: ${CONTAINER_HOSTNAME}
+            expose: true
+            readonly: true
+          MINIO_PORT:
+            default: "9000"
+            expose: true
+            readonly: true
+          MINIO_BUCKET:
+            default: paperphone
+            expose: true
+            readonly: true
+        instructions:
+          - type: TEXT
+            title: MinIO Access Key
+            content: ${MINIO_ROOT_USER}
+            category: Credentials
+          - type: PASSWORD
+            title: MinIO Secret Key
+            content: ${MINIO_ROOT_PASSWORD}
+            category: Credentials
 
-  # ── PaperPhone Server (Node.js) ────────────────────────────────
-  - name: server
-    icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/node.svg
-    template: PREBUILT
-    dependencies:
-      - MySQL
-      - Redis
-      - MinIO
-    spec:
-      source:
-        image: facilisvelox/paperphone-server:latest
-      ports:
-        - id: web
-          port: 3000
-          type: HTTP
-      env:
-        PORT:
-          default: "3000"
-        NODE_ENV:
-          default: production
-        JWT_SECRET:
-          default: ${JWT_SECRET}
-        JWT_EXPIRES_IN:
-          default: 7d
-        DB_HOST:
-          default: ${MYSQL_HOST}
-        DB_PORT:
-          default: ${MYSQL_PORT}
-        DB_USER:
-          default: ${MYSQL_USER}
-        DB_PASS:
-          default: ${MYSQL_PASSWORD}
-        DB_NAME:
-          default: ${MYSQL_DATABASE}
-        REDIS_HOST:
-          default: ${REDIS_HOST}
-        REDIS_PORT:
-          default: ${REDIS_PORT}
-        REDIS_PASS:
-          default: ${REDIS_PASSWORD}
-        MINIO_ENDPOINT:
-          default: ${MINIO_HOST}
-        MINIO_PORT:
-          default: ${MINIO_PORT}
-        MINIO_USE_SSL:
-          default: "false"
-        MINIO_ACCESS_KEY:
-          default: ${MINIO_ROOT_USER}
-        MINIO_SECRET_KEY:
-          default: ${MINIO_ROOT_PASSWORD}
-        MINIO_BUCKET:
-          default: ${MINIO_BUCKET}
-        CF_CALLS_APP_ID:
-          default: ${CF_CALLS_APP_ID}
-        CF_CALLS_APP_SECRET:
-          default: ${CF_CALLS_APP_SECRET}
-        SERVER_INTERNAL_URL:
-          default: ${ZEABUR_WEB_URL}
-          expose: true
-          readonly: true
+    # ── PaperPhone Server (Node.js) ────────────────────────────────
+    - name: server
+      icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/node.svg
+      template: PREBUILT
+      dependencies:
+        - MySQL
+        - Redis
+        - MinIO
+      spec:
+        source:
+          image: facilisvelox/paperphone-server:latest
+        ports:
+          - id: web
+            port: 3000
+            type: HTTP
+        env:
+          PORT:
+            default: "3000"
+          NODE_ENV:
+            default: production
+          JWT_SECRET:
+            default: ${JWT_SECRET}
+          JWT_EXPIRES_IN:
+            default: 7d
+          DB_HOST:
+            default: ${MYSQL_HOST}
+          DB_PORT:
+            default: ${MYSQL_PORT}
+          DB_USER:
+            default: ${MYSQL_USER}
+          DB_PASS:
+            default: ${MYSQL_PASSWORD}
+          DB_NAME:
+            default: ${MYSQL_DATABASE}
+          REDIS_HOST:
+            default: ${REDIS_HOST}
+          REDIS_PORT:
+            default: ${REDIS_PORT}
+          REDIS_PASS:
+            default: ${REDIS_PASSWORD}
+          MINIO_ENDPOINT:
+            default: ${MINIO_HOST}
+          MINIO_PORT:
+            default: ${MINIO_PORT}
+          MINIO_USE_SSL:
+            default: "false"
+          MINIO_ACCESS_KEY:
+            default: ${MINIO_ROOT_USER}
+          MINIO_SECRET_KEY:
+            default: ${MINIO_ROOT_PASSWORD}
+          MINIO_BUCKET:
+            default: ${MINIO_BUCKET}
+          CF_CALLS_APP_ID:
+            default: ${CF_CALLS_APP_ID}
+          CF_CALLS_APP_SECRET:
+            default: ${CF_CALLS_APP_SECRET}
+          SERVER_INTERNAL_URL:
+            default: ${ZEABUR_WEB_URL}
+            expose: true
+            readonly: true
 
-  # ── PaperPhone Client (Nginx / PWA) ────────────────────────────
-  - name: client
-    icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/nginx.svg
-    template: PREBUILT
-    domainKey: PUBLIC_DOMAIN
-    dependencies:
-      - server
-    spec:
-      source:
-        image: facilisvelox/paperphone-client:latest
-      ports:
-        - id: web
-          port: 80
-          type: HTTP
+    # ── PaperPhone Client (Nginx / PWA) ────────────────────────────
+    - name: client
+      icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/nginx.svg
+      template: PREBUILT
+      domainKey: PUBLIC_DOMAIN
+      dependencies:
+        - server
+      spec:
+        source:
+          image: facilisvelox/paperphone-client:latest
+        ports:
+          - id: web
+            port: 80
+            type: HTTP
 
 localization:
   zh-CN:
@@ -308,15 +305,19 @@ localization:
       后量子加密、WebRTC 视频/语音通话、多语言与 iOS PWA 部署，完全可自建。
     variables:
       - key: PUBLIC_DOMAIN
+        type: DOMAIN
         name: 客户端域名
         description: PaperPhone 前端的公开域名（例如 paperphone.example.com）。
       - key: JWT_SECRET
+        type: STRING
         name: JWT 密钥
         description: 用于签发认证令牌的长随机字符串，生产环境请务必修改。
       - key: CF_CALLS_APP_ID
+        type: STRING
         name: Cloudflare Calls App ID（可选）
         description: 跨网络 WebRTC 视频通话所需，从 Cloudflare Dashboard → Calls 获取。局域网内无需填写。
       - key: CF_CALLS_APP_SECRET
+        type: STRING
         name: Cloudflare Calls App Secret（可选）
         description: 与上方 CF_CALLS_APP_ID 配对使用的 Bearer Token。不使用 Cloudflare TURN 时留空即可。
     readme: |-
