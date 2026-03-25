@@ -1,148 +1,121 @@
 /**
- * KeyStore — persists crypto keys with four-tier fallback
+ * KeyStore — four-tier key persistence
  *
- * Storage order (best to most universal):
- *   1. In-memory cache  — instant, lives for this page load only
- *   2. IndexedDB        — persistent across sessions, most browsers
- *   3. sessionStorage   — survives page reload within same tab, cleared on close
- *   4. localStorage     — persistent, survives everything, maximum compatibility
+ * Tier 1: In-memory cache  — fastest, survives current page load only
+ * Tier 2: localStorage     — SYNCHRONOUS write, survives tab close/kill/reload
+ * Tier 3: sessionStorage   — survives reload, cleared on tab close
+ * Tier 4: IndexedDB        — indexed DB, async, may be restricted on some WebViews
  *
- * Tier 4 (localStorage) stores values as a JSON string. Since PaperPhone is
- * self-hosted and the keys are only as secure as the JS execution context
- * (same-origin), this is an acceptable tradeoff for maximum compatibility
- * with restricted WebView environments (e.g., Via browser on Android).
+ * DESIGN DECISION: localStorage is written SYNCHRONOUSLY (first, not fire-and-forget)
+ * so it is guaranteed to complete before any subsequent window.location.reload().
+ * This is the fallback of last resort that works on every Android browser including
+ * Via, Chrome, WebView-based PWAs.
+ *
+ * Security note: localStorage is accessible to same-origin JS only.
+ * For a self-hosted app this is an acceptable tradeoff vs. no encryption at all.
  */
 
-const DB_NAME = 'paperphone_keys';
-const DB_VERSION = 1;
-const STORE = 'keystore';
-const SS_PREFIX = 'ppk_';   // sessionStorage prefix
-const LS_PREFIX = 'ppkl_';  // localStorage prefix
+const DB_NAME  = 'paperphone_keys';
+const DB_VER   = 1;
+const STORE    = 'keystore';
+const LS_PFX   = 'ppk_';  // localStorage / sessionStorage prefix
 
 // ── In-memory cache ────────────────────────────────────────────────────────
-const _memCache = new Map();
+const _mem = new Map();
 
-// ── IndexedDB ──────────────────────────────────────────────────────────────
-let _dbPromise = null;
-function openDb() {
-  if (_dbPromise) return _dbPromise;
-  _dbPromise = new Promise((resolve, reject) => {
+// ── localStorage (synchronous, tier 2) ────────────────────────────────────
+function lsSet(k, v) { try { localStorage.setItem(LS_PFX + k, JSON.stringify(v)); } catch {} }
+function lsGet(k)    { try { const s = localStorage.getItem(LS_PFX + k); return s ? JSON.parse(s) : null; } catch { return null; } }
+function lsDel(k)    { try { localStorage.removeItem(LS_PFX + k); } catch {} }
+
+// ── sessionStorage (synchronous, tier 3) ──────────────────────────────────
+function ssSet(k, v) { try { sessionStorage.setItem(LS_PFX + k, JSON.stringify(v)); } catch {} }
+function ssGet(k)    { try { const s = sessionStorage.getItem(LS_PFX + k); return s ? JSON.parse(s) : null; } catch { return null; } }
+function ssDel(k)    { try { sessionStorage.removeItem(LS_PFX + k); } catch {} }
+
+// ── IndexedDB (async, tier 4) ──────────────────────────────────────────────
+let _dbp = null;
+function _openDb() {
+  if (_dbp) return _dbp;
+  _dbp = new Promise((res, rej) => {
     try {
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = e => e.target.result.createObjectStore(STORE);
-      req.onsuccess = e => resolve(e.target.result);
-      req.onerror = e => { _dbPromise = null; reject(e.target.error); };
-    } catch (e) { _dbPromise = null; reject(e); }
+      const r = indexedDB.open(DB_NAME, DB_VER);
+      r.onupgradeneeded = e => e.target.result.createObjectStore(STORE);
+      r.onsuccess = e => res(e.target.result);
+      r.onerror   = e => { _dbp = null; rej(e.target.error); };
+    } catch(e) { _dbp = null; rej(e); }
   });
-  return _dbPromise;
+  return _dbp;
 }
-
-async function idbSet(name, value) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
+async function idbGet(k) {
+  const db = await _openDb();
+  return new Promise((res, rej) => {
+    const r = db.transaction(STORE, 'readonly').objectStore(STORE).get(k);
+    r.onsuccess = e => res(e.target.result ?? null);
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+async function idbSet(k, v) {
+  const db = await _openDb();
+  return new Promise((res, rej) => {
     const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put(value, name);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = e => reject(e.target.error);
+    tx.objectStore(STORE).put(v, k);
+    tx.oncomplete = res;
+    tx.onerror = e => rej(e.target.error);
   });
 }
-
-async function idbGet(name) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readonly');
-    const req = tx.objectStore(STORE).get(name);
-    req.onsuccess = e => resolve(e.target.result ?? null);
-    req.onerror = e => reject(e.target.error);
-  });
-}
-
-async function idbDelete(name) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
+async function idbDel(k) {
+  const db = await _openDb();
+  return new Promise((res, rej) => {
     const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).delete(name);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = e => reject(e.target.error);
+    tx.objectStore(STORE).delete(k);
+    tx.oncomplete = res;
+    tx.onerror = e => rej(e.target.error);
   });
-}
-
-// ── sessionStorage ─────────────────────────────────────────────────────────
-function ssSet(name, value) {
-  try { sessionStorage.setItem(SS_PREFIX + name, JSON.stringify(value)); return true; }
-  catch { return false; }
-}
-function ssGet(name) {
-  try { const s = sessionStorage.getItem(SS_PREFIX + name); return s ? JSON.parse(s) : null; }
-  catch { return null; }
-}
-function ssDel(name) {
-  try { sessionStorage.removeItem(SS_PREFIX + name); } catch {}
-}
-
-// ── localStorage (tier 4, maximum compatibility) ────────────────────────────
-function lsSet(name, value) {
-  try { localStorage.setItem(LS_PREFIX + name, JSON.stringify(value)); return true; }
-  catch { return false; }
-}
-function lsGet(name) {
-  try { const s = localStorage.getItem(LS_PREFIX + name); return s ? JSON.parse(s) : null; }
-  catch { return null; }
-}
-function lsDel(name) {
-  try { localStorage.removeItem(LS_PREFIX + name); } catch {}
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
 export async function setKey(name, value) {
-  // Tier 1: Always update memory cache
-  _memCache.set(name, value);
-
-  // Tiers 2-4: persist wherever possible (fire and forget for speed)
-  Promise.resolve().then(async () => {
-    let persisted = false;
-    try { await idbSet(name, value); persisted = true; } catch {}
-    if (!persisted) { persisted = ssSet(name, value); }
-    if (!persisted) { lsSet(name, value); }
-    // Always also write to localStorage as belt-and-suspenders for WebViews
-    lsSet(name, value);
-  });
+  // Tier 1: memory (instant)
+  _mem.set(name, value);
+  // Tier 2: localStorage — SYNCHRONOUS so it always completes before any reload()
+  lsSet(name, value);
+  // Tier 3: sessionStorage — synchronous backup
+  ssSet(name, value);
+  // Tier 4: IndexedDB — async, best-effort (don't await, don't let failure block)
+  idbSet(name, value).catch(() => {});
 }
 
 export async function getKey(name) {
   // Tier 1: memory
-  if (_memCache.has(name)) return _memCache.get(name);
+  if (_mem.has(name)) return _mem.get(name);
 
-  // Tier 2: IndexedDB
-  try {
-    const val = await idbGet(name);
-    if (val !== null && val !== undefined) {
-      _memCache.set(name, val);
-      return val;
-    }
-  } catch {}
+  // Tier 2: localStorage
+  const lv = lsGet(name);
+  if (lv !== null) { _mem.set(name, lv); return lv; }
 
   // Tier 3: sessionStorage
-  const ssVal = ssGet(name);
-  if (ssVal !== null) {
-    _memCache.set(name, ssVal);
-    return ssVal;
-  }
+  const sv = ssGet(name);
+  if (sv !== null) { _mem.set(name, sv); return sv; }
 
-  // Tier 4: localStorage
-  const lsVal = lsGet(name);
-  if (lsVal !== null) {
-    _memCache.set(name, lsVal);
-    return lsVal;
-  }
+  // Tier 4: IndexedDB
+  try {
+    const iv = await idbGet(name);
+    if (iv !== null && iv !== undefined) {
+      _mem.set(name, iv);
+      // Promote to localStorage for next time
+      lsSet(name, iv);
+      return iv;
+    }
+  } catch {}
 
   return undefined;
 }
 
 export async function deleteKey(name) {
-  _memCache.delete(name);
-  try { await idbDelete(name); } catch {}
-  ssDel(name);
+  _mem.delete(name);
   lsDel(name);
+  ssDel(name);
+  idbDel(name).catch(() => {});
 }
