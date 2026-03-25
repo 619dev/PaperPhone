@@ -10,20 +10,20 @@ version: "3.9"
 #   redis   — Online presence & session cache
 #   minio   — S3-compatible object storage for media uploads
 #
+# Images:
+#   docker pull facilisvelox/paperphone-client:latest
+#   docker pull facilisvelox/paperphone-server:latest
+#
 # Quick start:
-#   cp server/.env.example server/.env   # and edit secrets
+#   cp server/.env.example server/.env   # edit secrets & CF_CALLS_APP_ID
 #   docker compose up -d
-#   docker compose exec mysql mysql -u root -p paperphone < /schema.sql
 # ─────────────────────────────────────────────────────────────────
 
 services:
 
   # ── Frontend (Nginx) ──────────────────────────────────────────
   client:
-    image: ${DOCKER_HUB_USER:-yourname}/paperphone-client:${TAG:-latest}
-    build:
-      context: ./client
-      dockerfile: Dockerfile
+    image: facilisvelox/paperphone-client:latest
     ports:
       - "80:80"
     depends_on:
@@ -35,10 +35,7 @@ services:
 
   # ── Backend (Node.js) ─────────────────────────────────────────
   server:
-    image: ${DOCKER_HUB_USER:-yourname}/paperphone-server:${TAG:-latest}
-    build:
-      context: ./server
-      dockerfile: Dockerfile
+    image: facilisvelox/paperphone-server:latest
     env_file: ./server/.env
     environment:
       DB_HOST: mysql

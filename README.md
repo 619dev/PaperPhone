@@ -49,22 +49,29 @@
 
 ## 快速启动
 
-### 方式一：Docker Compose（推荐）
+### 方式一：Docker Compose（推荐，无需本地构建）
 
 ```bash
-# 克隆仓库
+# 克隆仓库（仅需配置文件，镜像直接从 Docker Hub 拉取）
 git clone <repo-url> && cd paperphone
 
-# 复制环境变量
-cp server/.env.example server/.env.docker
-# 按需编辑 server/.env.docker
+# 复制并编辑环境变量
+cp server/.env.example server/.env
+# 按需编辑：DB_PASS / JWT_SECRET / CF_CALLS_APP_ID 等
 
-# 一键启动（MySQL + Redis + MinIO + 后端 + Nginx）
+# 拉取镜像并一键启动
 docker compose up -d
 
+# 查看服务状态
+docker compose ps
+
 # 访问
-open http://localhost:8080
+open http://localhost
 ```
+
+> 镜像已发布至 Docker Hub：
+> - `facilisvelox/paperphone-client:latest`
+> - `facilisvelox/paperphone-server:latest`
 
 ### 方式二：本地手动启动
 

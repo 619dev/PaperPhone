@@ -49,22 +49,29 @@ Cryptographic Layer
 
 ## Quick Start
 
-### Option 1: Docker Compose (Recommended)
+### Option 1: Docker Compose (Recommended — no local build needed)
 
 ```bash
-# Clone the repository
+# Clone the repository (config files only; images are pulled from Docker Hub)
 git clone <repo-url> && cd paperphone
 
-# Copy environment config
-cp server/.env.example server/.env.docker
-# Edit server/.env.docker as needed
+# Copy and edit environment variables
+cp server/.env.example server/.env
+# Fill in: DB_PASS / JWT_SECRET / CF_CALLS_APP_ID etc.
 
-# Start everything (MySQL + Redis + MinIO + backend + Nginx)
+# Pull images and start everything
 docker compose up -d
 
+# Check service status
+docker compose ps
+
 # Open in browser
-open http://localhost:8080
+open http://localhost
 ```
+
+> Pre-built images on Docker Hub:
+> - `facilisvelox/paperphone-client:latest`
+> - `facilisvelox/paperphone-server:latest`
 
 ### Option 2: Manual Local Start
 
