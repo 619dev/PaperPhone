@@ -96,8 +96,9 @@ export function renderLogin(root) {
 
       try {
         await window._sodiumPromise;
-        let data;
-        
+
+        // Step 1: Generate keys
+        submitBtn.textContent = t('registering');
         const ik  = await generateIdentityKeyPair();
         const spk = await generateSignedPreKey(ik.privateKey);
         const opks = await Promise.all(
@@ -105,9 +106,18 @@ export function renderLogin(root) {
             generateOneTimePreKey().then(k => ({ key_id: i, opk_pub: k.publicKey, _priv: k.privateKey }))
           )
         );
+
+        // Step 2: Persist keys to IndexedDB and verify they are actually readable
         await setKey('ik', ik);
         await setKey('spk', spk);
         for (const opk of opks) await setKey(`opk_${opk.key_id}`, { privateKey: opk._priv });
+
+        // Verify IK is readable before proceeding (catches silent IndexedDB failures)
+        const { getKey } = await import('../crypto/keystore.js');
+        const ikVerify = await getKey('ik');
+        if (!ikVerify || !ikVerify.privateKey) {
+          throw new Error('密钥存储失败，请检查浏览器是否允许存储数据（无痕/隐私模式不支持持久化）');
+        }
 
         const keysPayload = {
           ik_pub: ik.publicKey, spk_pub: spk.publicKey, spk_sig: spk.signature,
@@ -115,17 +125,27 @@ export function renderLogin(root) {
           prekeys: opks.map(({ key_id, opk_pub }) => ({ key_id, opk_pub })),
         };
 
+        // Step 3: Authenticate with server
+        let data;
         if (isRegister) {
           data = await api.register({ username, nickname, password, ...keysPayload });
           setToken(data.token);
         } else {
           data = await api.login({ username, password });
           setToken(data.token);
-          await api.uploadKeys(keysPayload);
+          // Upload new device's keys to server — retry once on failure
+          try {
+            await api.uploadKeys(keysPayload);
+          } catch {
+            await new Promise(r => setTimeout(r, 1000));
+            await api.uploadKeys(keysPayload);
+          }
         }
 
         state.user = data.user;
         connect();
+        // Small delay to ensure all async writes fully flush before reload
+        await new Promise(r => setTimeout(r, 300));
         window.location.reload();
       } catch (err) {
         errEl.textContent = err.message || t('opFailed');

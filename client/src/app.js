@@ -241,6 +241,58 @@ async function init() {
         lastMsg: '', lastTs: 0, unread: 0,
       })),
     ];
+    // Check if identity key exists in local storage post-login
+    // On some Android browsers, IndexedDB writes can fail silently
+    const { getKey, setKey: setK } = await import('./crypto/keystore.js');
+    const ikCheck = await getKey('ik');
+    if (!ikCheck) {
+      // Keys missing despite being logged in — show repair banner
+      const banner = document.createElement('div');
+      banner.id = 'key-repair-banner';
+      banner.style.cssText = `
+        position:fixed;top:0;left:0;right:0;z-index:9999;
+        background:#FF3B30;color:#fff;
+        padding:12px 16px;font-size:14px;text-align:center;
+        display:flex;align-items:center;justify-content:center;gap:10px;
+      `;
+      banner.innerHTML = `
+        <span>⚠️ 本地密钥丢失，无法加密发送消息</span>
+        <button id="repair-keys-btn" style="
+          background:#fff;color:#FF3B30;border:none;
+          border-radius:8px;padding:5px 12px;font-size:13px;
+          font-weight:600;cursor:pointer;">重新生成密钥</button>
+      `;
+      document.body.appendChild(banner);
+      document.getElementById('repair-keys-btn').onclick = async () => {
+        try {
+          banner.innerHTML = '<span>⏳ 正在生成密钥...</span>';
+          await window._sodiumPromise;
+          const { generateIdentityKeyPair, generateSignedPreKey, generateOneTimePreKey } = await import('./crypto/ratchet.js');
+          const ik  = await generateIdentityKeyPair();
+          const spk = await generateSignedPreKey(ik.privateKey);
+          const opks = await Promise.all(
+            Array.from({ length: 10 }, (_, i) =>
+              generateOneTimePreKey().then(k => ({ key_id: i, opk_pub: k.publicKey, _priv: k.privateKey }))
+            )
+          );
+          await setK('ik', ik);
+          await setK('spk', spk);
+          for (const opk of opks) await setK(`opk_${opk.key_id}`, { privateKey: opk._priv });
+          // Verify
+          const verify = await getKey('ik');
+          if (!verify) throw new Error('IndexedDB 写入仍然失败，请检查存储权限');
+          await api.uploadKeys({
+            ik_pub: ik.publicKey, spk_pub: spk.publicKey, spk_sig: spk.signature,
+            kem_pub: ik.publicKey,
+            prekeys: opks.map(({ key_id, opk_pub }) => ({ key_id, opk_pub })),
+          });
+          await new Promise(r => setTimeout(r, 300));
+          window.location.reload();
+        } catch (e) {
+          banner.innerHTML = `<span>❌ 修复失败: ${e.message}</span>`;
+        }
+      };
+    }
   } catch {
     // Token expired
     localStorage.removeItem('pp_token');
