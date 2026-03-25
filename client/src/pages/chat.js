@@ -170,15 +170,36 @@ export async function renderChat(root, chat) {
 
     for (const row of history) {
       const fromMe = row.from_id === state.user.id;
-      let text = t('encryptedMsg');
-      if (ratchetState) {
-        try {
-          const res = await ratchetDecrypt(ratchetState, row.ciphertext, JSON.parse(row.header || '{}'));
-          text = res.plaintext;
-          ratchetState = res.newState;
-        } catch {}
+      let text = row.ciphertext;
+      
+      if (chat.type === 'private') {
+        text = t('encryptedMsg');
+        if (!fromMe) {
+          if (row.header && (!ratchetState || !ratchetState.DHr)) {
+            try {
+              const h = JSON.parse(row.header);
+              const ik = await getKey('ik');
+              const spk = await getKey('spk');
+              if (ik && spk) {
+                const sharedSecret = await x3dhReceive({ ik, spk }, h);
+                ratchetState = await ratchetInit(sharedSecret, 'receiver');
+                ratchetState.DHr = h.dh || null;
+              }
+            } catch {}
+          }
+          if (ratchetState) {
+            try {
+              const h = row.header ? JSON.parse(row.header) : {};
+              const res = await ratchetDecrypt(ratchetState, row.ciphertext, h);
+              text = res.plaintext;
+              ratchetState = res.newState;
+            } catch {}
+          }
+        }
       }
-      addBubble(text, fromMe, row.created_at, row.msg_type);
+      // Provide url from decrypted text for media
+      const extra = ['image', 'voice', 'file'].includes(row.msg_type) ? { url: text } : {};
+      addBubble(text, fromMe, row.created_at, row.msg_type, extra);
     }
     if (ratchetState) await setKey(`session_${chat.id}`, ratchetState);
   } catch {}
@@ -200,7 +221,7 @@ export async function renderChat(root, chat) {
   }
 
   // ── Send message ──────────────────────────────────────────────
-  async function sendMessage(text, msgType = 'text') {
+  async function sendMessage(text, msgType = 'text', extra = {}) {
     if (!text.trim() && msgType === 'text') return;
     await ensureSession();
 
@@ -216,7 +237,7 @@ export async function renderChat(root, chat) {
       } catch (err) { showToast(t('encFailed') + ': ' + err.message); return; }
     }
 
-    addBubble(text, true, Date.now(), msgType, { msgId });
+    addBubble(text, true, Date.now(), msgType, { msgId, ...extra });
     send({
       type: 'message',
       to: chat.type === 'private' ? chat.id : undefined,
@@ -273,10 +294,7 @@ export async function renderChat(root, chat) {
       showToast(t('uploading'));
       const { url } = await api.upload(file);
       const isImg = file.type.startsWith('image');
-      addBubble(url, true, Date.now(), isImg ? 'image' : 'file', { url });
-      send({ type: 'message', to: chat.type === 'private' ? chat.id : undefined,
-        group_id: chat.type === 'group' ? chat.id : undefined,
-        msg_type: isImg ? 'image' : 'file', ciphertext: url, header: null });
+      sendMessage(url, isImg ? 'image' : 'file', { url });
     } catch { showToast(t('uploadFailed')); }
     fileInput.value = '';
   });
@@ -313,10 +331,7 @@ export async function renderChat(root, chat) {
       try {
         showToast(t('sendingVoice'));
         const { url } = await api.upload(file);
-        addBubble(url, true, Date.now(), 'voice', { url, duration });
-        send({ type: 'message', to: chat.type === 'private' ? chat.id : undefined,
-          group_id: chat.type === 'group' ? chat.id : undefined,
-          msg_type: 'voice', ciphertext: url, header: null });
+        sendMessage(url, 'voice', { url, duration });
       } catch { showToast(t('uploadFailed')); }
     };
     mediaRec.stream.getTracks().forEach(t => t.stop());
@@ -388,26 +403,31 @@ export async function renderChat(root, chat) {
     const matchId = msg.group_id || msg.from;
     if (matchId !== chat.id) return;
 
-    let text = t('encryptedMsg');
-    if (ratchetState && msg.ciphertext) {
-      if (msg.header && !ratchetState.DHr) {
+    let text = msg.ciphertext;
+    if (chat.type === 'private') {
+      text = t('encryptedMsg');
+      if (msg.header && (!ratchetState || !ratchetState.DHr)) {
         try {
           const h = JSON.parse(msg.header);
           const ik = await getKey('ik');
           const spk = await getKey('spk');
-          const sharedSecret = await x3dhReceive({ ik, spk }, h);
-          ratchetState = await ratchetInit(sharedSecret, 'receiver');
-          ratchetState.DHr = h.dh || null;
+          if (ik && spk) {
+            const sharedSecret = await x3dhReceive({ ik, spk }, h);
+            ratchetState = await ratchetInit(sharedSecret, 'receiver');
+            ratchetState.DHr = h.dh || null;
+            await setKey(`session_${chat.id}`, ratchetState);
+          }
+        } catch {}
+      }
+      if (ratchetState && msg.ciphertext) {
+        try {
+          const h = msg.header ? JSON.parse(msg.header) : {};
+          const res = await ratchetDecrypt(ratchetState, msg.ciphertext, h);
+          text = res.plaintext;
+          ratchetState = res.newState;
           await setKey(`session_${chat.id}`, ratchetState);
         } catch {}
       }
-      try {
-        const h = msg.header ? JSON.parse(msg.header) : {};
-        const res = await ratchetDecrypt(ratchetState, msg.ciphertext, h);
-        text = res.plaintext;
-        ratchetState = res.newState;
-        await setKey(`session_${chat.id}`, ratchetState);
-      } catch {}
     }
     addBubble(text, false, msg.ts, msg.msg_type || 'text');
     // Update chat list last message time

@@ -153,7 +153,7 @@ export async function ratchetInit(sharedSecret, role) {
   return {
     role,
     // Root key (32 bytes)
-    RK: sharedSecret,
+    RK: b64encode(sharedSecret),
     // Chain keys
     CKs: null, // sending chain key
     CKr: null, // receiving chain key
@@ -169,8 +169,8 @@ export async function ratchetInit(sharedSecret, role) {
 
 /** Ratchet step — advance root key with DH output + KEM sharedSecret */
 function _ratchetStep(RK, dhOutput, kemShared) {
-  const combined = concat(b64decode(RK) instanceof Uint8Array ? b64decode(RK) : new Uint8Array(RK),
-    dhOutput, kemShared || new Uint8Array(32));
+  const rkBytes = typeof RK === 'string' ? b64decode(RK) : new Uint8Array(RK);
+  const combined = concat(rkBytes, dhOutput, kemShared || new Uint8Array(32));
   const newRK = kdf(combined, 'RK-step');
   const newCK = kdf(combined, 'CK-step');
   return { newRK: b64encode(newRK), newCK: b64encode(newCK) };
