@@ -83,6 +83,7 @@ spec:
         env:
           MYSQL_ROOT_PASSWORD:
             default: ${PASSWORD}
+            expose: true
           MYSQL_DATABASE:
             default: paperphone
             expose: true
@@ -99,7 +100,7 @@ spec:
             expose: true
             readonly: true
           MYSQL_PORT:
-            default: ${DATABASE_PORT}
+            default: "3306"
             expose: true
             readonly: true
         instructions:
@@ -154,7 +155,7 @@ spec:
             expose: true
             readonly: true
           REDIS_PORT:
-            default: ${DATABASE_PORT}
+            default: "6379"
             expose: true
             readonly: true
           REDIS_URI:
@@ -252,9 +253,9 @@ spec:
           DB_PORT:
             default: ${MYSQL_PORT}
           DB_USER:
-            default: ${MYSQL_USER}
+            default: root
           DB_PASS:
-            default: ${MYSQL_PASSWORD}
+            default: ${MYSQL_ROOT_PASSWORD}
           DB_NAME:
             default: ${MYSQL_DATABASE}
           REDIS_HOST:
