@@ -45,6 +45,7 @@ export const api = {
   search:      q   => req('GET',   `/api/users/search?q=${encodeURIComponent(q)}`),
   prekeys:     uid => req('GET',   `/api/users/${uid}/prekeys`),
   uploadOPKs:  d   => req('POST',  '/api/users/prekeys', d),
+  uploadKeys:  d   => req('PUT',   '/api/users/keys', d),
 
   // Friends
   friends:        ()  => req('GET',  '/api/friends'),

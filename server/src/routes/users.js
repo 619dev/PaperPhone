@@ -83,4 +83,29 @@ router.post('/prekeys', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// PUT /api/users/keys — update identity keys and prekeys for new device login
+router.put('/keys', async (req, res, next) => {
+  try {
+    const { ik_pub, spk_pub, spk_sig, kem_pub, prekeys } = req.body;
+    if (!ik_pub || !spk_pub || !spk_sig || !kem_pub) {
+      return res.status(400).json({ error: 'Missing required keys' });
+    }
+    const db = getDb();
+    
+    await db.query(
+      'UPDATE users SET ik_pub = ?, spk_pub = ?, spk_sig = ?, kem_pub = ? WHERE id = ?',
+      [ik_pub, spk_pub, spk_sig, kem_pub, req.user.id]
+    );
+
+    await db.query('DELETE FROM prekeys WHERE user_id = ?', [req.user.id]);
+    
+    if (Array.isArray(prekeys) && prekeys.length > 0) {
+      const rows = prekeys.map(pk => [req.user.id, pk.key_id, pk.opk_pub]);
+      await db.query('INSERT INTO prekeys (user_id, key_id, opk_pub) VALUES ?', [rows]);
+    }
+    
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

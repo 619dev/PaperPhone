@@ -206,24 +206,28 @@ export async function renderChat(root, chat) {
 
   // ── Init session ──────────────────────────────────────────────
   async function ensureSession() {
-    if (ratchetState || chat.type !== 'private') return;
+    if (ratchetState || chat.type !== 'private') return true;
     try {
       await window._sodiumPromise;
       const bundle = await api.prekeys(chat.id);
       const ik = await getKey('ik');
+      if (!ik) throw new Error(t('noKey'));
       const { sharedSecret, header: x3dhHeader } = await x3dhSend(ik, bundle);
       ratchetState = await ratchetInit(sharedSecret, 'sender');
       ratchetState._x3dhHeader = x3dhHeader;
       await setKey(`session_${chat.id}`, ratchetState);
+      return true;
     } catch (err) {
       showToast(t('sessionFailed') + ': ' + err.message);
+      return false;
     }
   }
 
   // ── Send message ──────────────────────────────────────────────
   async function sendMessage(text, msgType = 'text', extra = {}) {
     if (!text.trim() && msgType === 'text') return;
-    await ensureSession();
+    const sessionOk = await ensureSession();
+    if (!sessionOk && chat.type === 'private') return;
 
     let ciphertext = text, header = null, msgId = crypto.randomUUID();
     if (ratchetState) {

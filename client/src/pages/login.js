@@ -97,26 +97,30 @@ export function renderLogin(root) {
       try {
         await window._sodiumPromise;
         let data;
-        if (isRegister) {
-          const ik  = await generateIdentityKeyPair();
-          const spk = await generateSignedPreKey(ik.privateKey);
-          const opks = await Promise.all(
-            Array.from({ length: 10 }, (_, i) =>
-              generateOneTimePreKey().then(k => ({ key_id: i, opk_pub: k.publicKey, _priv: k.privateKey }))
-            )
-          );
-          await setKey('ik', ik);
-          await setKey('spk', spk);
-          for (const opk of opks) await setKey(`opk_${opk.key_id}`, { privateKey: opk._priv });
+        
+        const ik  = await generateIdentityKeyPair();
+        const spk = await generateSignedPreKey(ik.privateKey);
+        const opks = await Promise.all(
+          Array.from({ length: 10 }, (_, i) =>
+            generateOneTimePreKey().then(k => ({ key_id: i, opk_pub: k.publicKey, _priv: k.privateKey }))
+          )
+        );
+        await setKey('ik', ik);
+        await setKey('spk', spk);
+        for (const opk of opks) await setKey(`opk_${opk.key_id}`, { privateKey: opk._priv });
 
-          data = await api.register({
-            username, nickname, password,
-            ik_pub: ik.publicKey, spk_pub: spk.publicKey, spk_sig: spk.signature,
-            kem_pub: ik.publicKey,
-            prekeys: opks.map(({ key_id, opk_pub }) => ({ key_id, opk_pub })),
-          });
+        const keysPayload = {
+          ik_pub: ik.publicKey, spk_pub: spk.publicKey, spk_sig: spk.signature,
+          kem_pub: ik.publicKey,
+          prekeys: opks.map(({ key_id, opk_pub }) => ({ key_id, opk_pub })),
+        };
+
+        if (isRegister) {
+          data = await api.register({ username, nickname, password, ...keysPayload });
         } else {
           data = await api.login({ username, password });
+          setToken(data.token);
+          await api.uploadKeys(keysPayload);
         }
 
         setToken(data.token);
