@@ -2,7 +2,7 @@
  * Login / Register page — i18n v2
  */
 import { api, setToken } from '../api.js';
-import { state, showToast } from '../app.js';
+import { state, showToast, navigateAfterLogin } from '../app.js';
 import { connect } from '../socket.js';
 import { generateIdentityKeyPair, generateSignedPreKey, generateOneTimePreKey } from '../crypto/ratchet.js';
 import { setKey } from '../crypto/keystore.js';
@@ -153,10 +153,9 @@ export function renderLogin(root) {
           }
         }
 
-        state.user = data.user;
-        connect();
-        await new Promise(r => setTimeout(r, 200)); // let storage settle
-        window.location.reload();
+        // Navigate to main app WITHOUT reloading the page
+        // This preserves the in-memory key cache which would be lost on reload()
+        await navigateAfterLogin(data.user);
       } catch (err) {
         errEl.textContent = err.message || t('opFailed');
         submitBtn.disabled = false;
