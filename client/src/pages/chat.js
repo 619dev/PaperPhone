@@ -5,7 +5,7 @@ import { state, avatarEl, goBack, showToast, formatTime } from '../app.js';
 import { api } from '../api.js';
 import { send, onEvent, offEvent } from '../socket.js';
 import { getKey } from '../crypto/keystore.js';
-import { encryptMessage, decryptMessage } from '../crypto/ratchet.js';
+import { encryptMessage, encryptMessageDual, decryptMessage } from '../crypto/ratchet.js';
 import { t } from '../i18n.js';
 import { callManager } from '../services/webrtc.js';
 
@@ -206,8 +206,14 @@ export async function renderChat(root, chat) {
           text = plain;
           if (['image', 'voice', 'file'].includes(row.msg_type)) extra = { url: text };
         }
+      } else if (chat.type === 'private' && fromMe && row.self_ciphertext && row.self_header) {
+        const plain = await tryDecrypt(row.self_ciphertext, row.self_header);
+        if (plain !== null) {
+          text = plain;
+          if (['image', 'voice', 'file'].includes(row.msg_type)) extra = { url: text };
+        }
+        if (row.read_at) extra.read_at = row.read_at;
       } else if (fromMe) {
-        text = t('encryptedMsg');
         if (row.read_at) extra.read_at = row.read_at;
       }
 
@@ -234,12 +240,18 @@ export async function renderChat(root, chat) {
     let header = null;
     const msgId = crypto.randomUUID();
 
+    let selfCiphertext = null;
+    let selfHeader = null;
+
     if (chat.type === 'private') {
       try {
         const ikPub = await loadRecipientKey();
-        const res = await encryptMessage(ikPub, text);
+        const myKey = await loadMyKey();
+        const res = await encryptMessageDual(ikPub, myKey.publicKey, text);
         ciphertext = res.ciphertext;
         header = JSON.stringify(res.header);
+        selfCiphertext = res.self_ciphertext;
+        selfHeader = JSON.stringify(res.self_header);
       } catch (err) {
         console.error('[E2EE] encryptMessage failed:', err);
         showToast(`${t('encFailed')}: ${err.message}`, 4000);
@@ -253,6 +265,8 @@ export async function renderChat(root, chat) {
       to: chat.type === 'private' ? chat.id : undefined,
       group_id: chat.type === 'group' ? chat.id : undefined,
       msg_type: msgType, ciphertext, header,
+      self_ciphertext: selfCiphertext,
+      self_header: selfHeader,
       client_id: msgId,
     });
     const c = state.chats.find(s => s.id === chat.id);

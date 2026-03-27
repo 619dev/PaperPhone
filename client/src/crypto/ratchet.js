@@ -111,6 +111,26 @@ export async function encryptMessage(recipientIkPub, plaintext) {
   };
 }
 
+// ── Dual Encrypt (for both recipient AND sender) ──────────────────────────
+
+/**
+ * Encrypt plaintext for both recipient and sender (so sender can decrypt own history).
+ * @param {string} recipientIkPub  - Recipient's identity public key (base64)
+ * @param {string} senderIkPub     - Sender's own identity public key (base64)
+ * @param {string} plaintext       - UTF-8 message text
+ * @returns {{ ciphertext, header, self_ciphertext, self_header }}
+ */
+export async function encryptMessageDual(recipientIkPub, senderIkPub, plaintext) {
+  const forRecipient = await encryptMessage(recipientIkPub, plaintext);
+  const forSelf = await encryptMessage(senderIkPub, plaintext);
+  return {
+    ciphertext: forRecipient.ciphertext,
+    header: forRecipient.header,
+    self_ciphertext: forSelf.ciphertext,
+    self_header: forSelf.header,
+  };
+}
+
 // ── Decrypt (stateless, per-message) ──────────────────────────────────────
 
 /**

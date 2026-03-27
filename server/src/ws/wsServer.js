@@ -124,9 +124,9 @@ function initWsServer(httpServer) {
         // Always persist to DB for history; mark delivered immediately if online
         const db = getDb();
         await db.query(
-          `INSERT INTO messages (id, type, from_id, to_id, ciphertext, header, msg_type, delivered)
-           VALUES (?, 'private', ?, ?, ?, ?, ?, ?)`,
-          [msgId, ws.userId, msg.to, msg.ciphertext, msg.header || null, msg.msg_type || 'text', delivered ? 1 : 0]
+          `INSERT INTO messages (id, type, from_id, to_id, ciphertext, header, self_ciphertext, self_header, msg_type, delivered)
+           VALUES (?, 'private', ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [msgId, ws.userId, msg.to, msg.ciphertext, msg.header || null, msg.self_ciphertext || null, msg.self_header || null, msg.msg_type || 'text', delivered ? 1 : 0]
         );
         // ACK sender
         if (ws.readyState === WebSocket.OPEN) {
@@ -245,7 +245,7 @@ function initWsServer(httpServer) {
 
 async function flushOfflineMessages(userId, ws, db) {
   const [rows] = await db.query(
-    `SELECT id, from_id, to_id, ciphertext, header, msg_type, created_at, read_at, type
+    `SELECT id, from_id, to_id, ciphertext, header, self_ciphertext, self_header, msg_type, created_at, read_at, type
      FROM messages
      WHERE to_id = ? AND delivered = 0 AND type = 'private'
      ORDER BY created_at ASC`,

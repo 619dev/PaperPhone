@@ -82,14 +82,29 @@ CREATE TABLE IF NOT EXISTS messages (
   type        ENUM('private','group') NOT NULL,
   from_id     VARCHAR(36)   NOT NULL,
   to_id       VARCHAR(36)   NOT NULL,   -- user_id or group_id
-  ciphertext  LONGTEXT      NOT NULL,   -- base64 encrypted payload
-  header      TEXT          DEFAULT NULL, -- ephemeral public key (for E2EE)
+  ciphertext  LONGTEXT      NOT NULL,   -- base64 encrypted payload (for recipient)
+  header      TEXT          DEFAULT NULL, -- ephemeral public key (for E2EE, recipient)
+  self_ciphertext LONGTEXT  DEFAULT NULL, -- base64 encrypted payload (for sender)
+  self_header TEXT          DEFAULT NULL, -- ephemeral public key (for E2EE, sender)
   msg_type    ENUM('text','image','file','voice','video_call','system') NOT NULL DEFAULT 'text',
   created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   delivered   TINYINT(1)    NOT NULL DEFAULT 0,
   read_at     DATETIME      DEFAULT NULL,
   INDEX idx_to_undelivered (to_id, delivered, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Migration: add self_ciphertext / self_header for dual encryption (idempotent)
+SET @db_name = DATABASE();
+SET @tbl = 'messages';
+
+SET @col_check = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db_name AND TABLE_NAME = @tbl AND COLUMN_NAME = 'self_ciphertext');
+SET @sql = IF(@col_check = 0,
+  'ALTER TABLE messages ADD COLUMN self_ciphertext LONGTEXT DEFAULT NULL AFTER header, ADD COLUMN self_header TEXT DEFAULT NULL AFTER self_ciphertext',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ── Moments (朋友圈) ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS moments (
