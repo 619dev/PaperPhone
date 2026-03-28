@@ -1,10 +1,11 @@
 /**
  * Moments (朋友圈) Page
- * WeChat-style social feed: text + up to 9 images, likes, comments
+ * WeChat-style social feed: text + up to 9 images, likes with avatars, comments, visibility control
  */
 import { api } from '../api.js';
 import { state, showToast, avatarEl, formatTime } from '../app.js';
 import { t } from '../i18n.js';
+import { openVisibilityPicker } from '../components/tagManager.js';
 
 export function renderMoments(root) {
   root.innerHTML = '';
@@ -76,7 +77,6 @@ export function renderMoments(root) {
     const el = feed;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) loadFeed(true);
   }, { passive: true });
-  // Listen on window scroll too in case feed isn't scrollable
   const scrollHandler = () => {
     if (root.scrollTop + root.clientHeight >= root.scrollHeight - 200) loadFeed(true);
   };
@@ -138,19 +138,72 @@ export function renderMoments(root) {
       card.appendChild(grid);
     }
 
+    // ── Like avatars row ───────────────────────────────────────────
+    if (m.likedUsers && m.likedUsers.length > 0) {
+      const likeRow = document.createElement('div');
+      likeRow.className = 'like-avatars-row';
+
+      const heartIcon = document.createElement('span');
+      heartIcon.className = 'like-avatars-heart';
+      heartIcon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="#FF3B5C"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+      likeRow.appendChild(heartIcon);
+
+      const avatarStack = document.createElement('div');
+      avatarStack.className = 'like-avatar-stack';
+      const maxShow = 8;
+      m.likedUsers.slice(0, maxShow).forEach(u => {
+        const av = avatarEl(u.nickname || u.username, u.avatar, 'like-avatar');
+        av.title = u.nickname || u.username;
+        avatarStack.appendChild(av);
+      });
+      if (m.likedUsers.length > maxShow) {
+        const more = document.createElement('div');
+        more.className = 'like-avatar like-avatar-more';
+        more.textContent = `+${m.likedUsers.length - maxShow}`;
+        avatarStack.appendChild(more);
+      }
+      likeRow.appendChild(avatarStack);
+
+      // Click to expand like list
+      likeRow.onclick = () => openLikeList(m.likedUsers);
+      card.appendChild(likeRow);
+    }
+
     // Actions bar
     const actions = document.createElement('div');
     actions.className = 'moment-actions';
     const likeBtn = document.createElement('button');
     likeBtn.className = `moment-like-btn${m.viewerLiked ? ' liked' : ''}`;
-    likeBtn.innerHTML = `${m.viewerLiked ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="#FF3B5C"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></svg>'} ${m.likes || 0}`;
+    const heartFilled = '<svg viewBox="0 0 24 24" width="14" height="14" fill="#FF3B5C"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
+    const heartOutline = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></svg>';
+    likeBtn.innerHTML = `${m.viewerLiked ? heartFilled : heartOutline} ${m.likes || 0}`;
     likeBtn.onclick = async () => {
       try {
         const r = await api.likeMoment(m.id);
         m.viewerLiked = r.liked;
         m.likes = r.liked ? (m.likes || 0) + 1 : Math.max(0, (m.likes || 0) - 1);
         likeBtn.className = `moment-like-btn${m.viewerLiked ? ' liked' : ''}`;
-        likeBtn.innerHTML = `${m.viewerLiked ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="#FF3B5C"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></svg>'} ${m.likes}`;
+        likeBtn.innerHTML = `${m.viewerLiked ? heartFilled : heartOutline} ${m.likes}`;
+
+        // Update like avatars — add or remove current user
+        if (r.liked) {
+          if (!m.likedUsers) m.likedUsers = [];
+          m.likedUsers.push({
+            id: state.user.id,
+            nickname: state.user.nickname,
+            username: state.user.username,
+            avatar: state.user.avatar
+          });
+        } else {
+          m.likedUsers = (m.likedUsers || []).filter(u => u.id !== state.user.id);
+        }
+        // Re-render like avatars
+        const oldRow = card.querySelector('.like-avatars-row');
+        if (oldRow) oldRow.remove();
+        if (m.likedUsers.length > 0) {
+          const newRow = buildLikeAvatarsRow(m.likedUsers);
+          card.insertBefore(newRow, actions);
+        }
       } catch { showToast('操作失败'); }
     };
     const cmtBtn = document.createElement('button');
@@ -177,6 +230,62 @@ export function renderMoments(root) {
     };
 
     return card;
+  }
+
+  function buildLikeAvatarsRow(likedUsers) {
+    const likeRow = document.createElement('div');
+    likeRow.className = 'like-avatars-row';
+
+    const heartIcon = document.createElement('span');
+    heartIcon.className = 'like-avatars-heart';
+    heartIcon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="#FF3B5C"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+    likeRow.appendChild(heartIcon);
+
+    const avatarStack = document.createElement('div');
+    avatarStack.className = 'like-avatar-stack';
+    const maxShow = 8;
+    likedUsers.slice(0, maxShow).forEach(u => {
+      const av = avatarEl(u.nickname || u.username, u.avatar, 'like-avatar');
+      av.title = u.nickname || u.username;
+      avatarStack.appendChild(av);
+    });
+    if (likedUsers.length > maxShow) {
+      const more = document.createElement('div');
+      more.className = 'like-avatar like-avatar-more';
+      more.textContent = `+${likedUsers.length - maxShow}`;
+      avatarStack.appendChild(more);
+    }
+    likeRow.appendChild(avatarStack);
+    likeRow.onclick = () => openLikeList(likedUsers);
+    return likeRow;
+  }
+
+  function openLikeList(users) {
+    const overlay = document.createElement('div');
+    overlay.className = 'like-list-overlay';
+    const card = document.createElement('div');
+    card.className = 'like-list-card';
+    card.innerHTML = `<div class="like-list-header">
+      <span>${t('likedUsers')}</span>
+      <button class="icon-btn like-list-close"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+    </div>`;
+    const list = document.createElement('div');
+    list.className = 'like-list-body';
+    users.forEach(u => {
+      const row = document.createElement('div');
+      row.className = 'like-list-row';
+      row.appendChild(avatarEl(u.nickname || u.username, u.avatar, 'like-list-avatar'));
+      const name = document.createElement('span');
+      name.className = 'like-list-name';
+      name.textContent = u.nickname || u.username;
+      row.appendChild(name);
+      list.appendChild(row);
+    });
+    card.appendChild(list);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    card.querySelector('.like-list-close').onclick = () => overlay.remove();
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   }
 
   function renderComments(container, m, cmtBtn) {
@@ -267,6 +376,9 @@ export function renderMoments(root) {
     const sheet = document.createElement('div');
     sheet.className = 'compose-sheet';
 
+    // Visibility settings
+    let visSettings = { visibility: 'public' };
+
     // ── Header bar ──────────────────────────────────────────────
     const hdr = document.createElement('div');
     hdr.className = 'compose-header';
@@ -319,6 +431,17 @@ export function renderMoments(root) {
       <span class="compose-photo-count" id="compose-photo-count" style="display:none">0/9</span>
     `;
 
+    // Visibility button
+    const visBtn = document.createElement('button');
+    visBtn.className = 'compose-vis-btn';
+    visBtn.id = 'compose-vis-btn';
+    visBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" opacity=".7">
+        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+      </svg>
+      <span class="compose-vis-label" id="compose-vis-label">${t('visibilityPublic')}</span>
+    `;
+
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.id = 'compose-file-input';
@@ -327,6 +450,7 @@ export function renderMoments(root) {
     fileInput.style.display = 'none';
 
     toolbar.appendChild(charCount);
+    toolbar.appendChild(visBtn);
     toolbar.appendChild(photoBtn);
     toolbar.appendChild(fileInput);
 
@@ -341,7 +465,28 @@ export function renderMoments(root) {
 
     const submitBtn = modal.querySelector('#compose-submit');
     const photoCount = modal.querySelector('#compose-photo-count');
+    const visLabel = modal.querySelector('#compose-vis-label');
     let uploadedUrls = [];
+
+    // ── Visibility picker ────────────────────────────────────────
+    visBtn.onclick = () => {
+      openVisibilityPicker(visSettings, state.contacts, (result) => {
+        visSettings = result;
+        // Update label
+        if (result.visibility === 'whitelist') {
+          const count = (result.visible_tags?.length || 0) + (result.visible_users?.length || 0);
+          visLabel.textContent = `${t('visibilityWhitelist')} (${count})`;
+          visBtn.classList.add('compose-vis-active');
+        } else if (result.visibility === 'blacklist') {
+          const count = (result.invisible_tags?.length || 0) + (result.invisible_users?.length || 0);
+          visLabel.textContent = `${t('visibilityBlacklist')} (${count})`;
+          visBtn.classList.add('compose-vis-active');
+        } else {
+          visLabel.textContent = t('visibilityPublic');
+          visBtn.classList.remove('compose-vis-active');
+        }
+      });
+    };
 
     // ── Auto-grow textarea + enable publish ──────────────────────
     textarea.oninput = () => {
@@ -366,7 +511,9 @@ export function renderMoments(root) {
     modal.addEventListener('click', e => { if (e.target === modal) dismiss(); });
 
     // ── Photo upload ─────────────────────────────────────────────
-    photoBtn.onclick = () => {
+    photoBtn.onclick = (e) => {
+      // Don't trigger if clicking the vis btn
+      if (e.target.closest('#compose-vis-btn')) return;
       if (uploadedUrls.length >= 9) { showToast('最多选择 9 张图片'); return; }
       fileInput.click();
     };
@@ -374,7 +521,6 @@ export function renderMoments(root) {
     fileInput.onchange = async () => {
       const files = Array.from(fileInput.files).slice(0, 9 - uploadedUrls.length);
       for (const file of files) {
-        // Placeholder thumb with spinner
         const thumb = document.createElement('div');
         thumb.className = 'compose-thumb compose-thumb-loading';
         thumb.innerHTML = `<div class="compose-thumb-spinner"></div>`;
@@ -426,7 +572,11 @@ export function renderMoments(root) {
       submitBtn.disabled = true;
       submitBtn.textContent = t('sendMoment') || '发布中...';
       try {
-        await api.createMoment({ text, images: uploadedUrls });
+        await api.createMoment({
+          text,
+          images: uploadedUrls,
+          ...visSettings,
+        });
         dismiss();
         setTimeout(() => { exhausted = false; oldestTs = null; loadFeed(false); }, 300);
       } catch {

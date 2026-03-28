@@ -224,3 +224,44 @@ CREATE TABLE IF NOT EXISTS sessions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_sess_user (user_id, revoked)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Friend Tags ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS friend_tags (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id     VARCHAR(36)   NOT NULL,
+  name        VARCHAR(32)   NOT NULL,
+  color       VARCHAR(7)    DEFAULT '#2196F3',
+  created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_tag (user_id, name),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_ft_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Friend Tag Assignments (many-to-many) ────────────────────────────────
+CREATE TABLE IF NOT EXISTS friend_tag_assignments (
+  tag_id      BIGINT UNSIGNED NOT NULL,
+  friend_id   VARCHAR(36)     NOT NULL,
+  PRIMARY KEY (tag_id, friend_id),
+  FOREIGN KEY (tag_id)    REFERENCES friend_tags(id) ON DELETE CASCADE,
+  FOREIGN KEY (friend_id) REFERENCES users(id)       ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Moment Visibility Rules ──────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS moment_visibility (
+  moment_id   BIGINT UNSIGNED NOT NULL,
+  type        ENUM('whitelist','blacklist') NOT NULL,
+  target_type ENUM('tag','user') NOT NULL,
+  target_id   VARCHAR(36) NOT NULL,
+  PRIMARY KEY (moment_id, target_type, target_id),
+  FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Migration: add visibility column to moments (idempotent)
+SET @m_vis = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'moments' AND COLUMN_NAME = 'visibility');
+SET @m_sql = IF(@m_vis = 0,
+  "ALTER TABLE moments ADD COLUMN visibility ENUM('public','whitelist','blacklist') NOT NULL DEFAULT 'public' AFTER text_content",
+  'SELECT 1');
+PREPARE m_stmt FROM @m_sql;
+EXECUTE m_stmt;
+DEALLOCATE PREPARE m_stmt;

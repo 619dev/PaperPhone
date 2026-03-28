@@ -7,6 +7,7 @@ const { initWsServer } = require('./ws/wsServer');
 const { connectDb, getDb } = require('./db/mysql');
 const { connectRedis }     = require('./db/redis');
 const { initMomentsTables } = require('./routes/moments');
+const { initTagTables }      = require('./routes/tags');
 
 const PORT = process.env.PORT || 3000;
 
@@ -30,6 +31,7 @@ async function main() {
   await connectDb();
   await initSchema();
   await initMomentsTables();
+  await initTagTables();
   await connectRedis();
 
   const server = http.createServer(app);

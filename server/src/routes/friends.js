@@ -8,7 +8,7 @@ const { pushToUserOneSignal } = require('../services/onesignal');
 const router = express.Router();
 router.use(authMiddleware);
 
-// GET /api/friends — list accepted friends
+// GET /api/friends — list accepted friends (with tags)
 router.get('/', async (req, res, next) => {
   try {
     const db = getDb();
@@ -19,6 +19,24 @@ router.get('/', async (req, res, next) => {
        WHERE f.user_id = ? AND f.status = 'accepted'`,
       [req.user.id]
     );
+    // Attach tags for each friend
+    if (rows.length) {
+      const friendIds = rows.map(r => r.id);
+      const placeholders = friendIds.map(() => '?').join(',');
+      const [tagRows] = await db.query(
+        `SELECT a.friend_id, t.id as tag_id, t.name as tag_name, t.color as tag_color
+         FROM friend_tag_assignments a
+         JOIN friend_tags t ON t.id = a.tag_id
+         WHERE t.user_id = ? AND a.friend_id IN (${placeholders})`,
+        [req.user.id, ...friendIds]
+      );
+      const tagMap = {};
+      tagRows.forEach(r => {
+        if (!tagMap[r.friend_id]) tagMap[r.friend_id] = [];
+        tagMap[r.friend_id].push({ id: r.tag_id, name: r.tag_name, color: r.tag_color });
+      });
+      rows.forEach(r => { r.tags = tagMap[r.id] || []; });
+    }
     res.json(rows);
   } catch (err) { next(err); }
 });

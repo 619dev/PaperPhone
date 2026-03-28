@@ -1,9 +1,10 @@
 /**
- * Contacts page — i18n v2
+ * Contacts page — with tag filtering and tag management
  */
 import { state, openChat, avatarEl, showToast } from '../app.js';
 import { api } from '../api.js';
 import { t } from '../i18n.js';
+import { openTagManager, openFriendTagPicker } from '../components/tagManager.js';
 
 export function renderContacts(root) {
   root.innerHTML = `
@@ -16,6 +17,7 @@ export function renderContacts(root) {
         </svg>
       </button>
     </div>
+    <div class="tag-filter-bar" id="tag-filter-bar"></div>
     <div class="search-wrap">
       <input class="search-input" id="contact-search" placeholder="${t('searchUsers')}">
     </div>
@@ -26,6 +28,56 @@ export function renderContacts(root) {
   const listEl = root.querySelector('#contact-list');
   const resultsEl = root.querySelector('#search-results');
   const searchInput = root.querySelector('#contact-search');
+  const filterBar = root.querySelector('#tag-filter-bar');
+
+  let activeTagId = null; // null = all
+  let tags = [];
+
+  // ── Load tags for filter bar ──────────────────────────────────
+  async function loadTags() {
+    try {
+      tags = await api.tags();
+    } catch { tags = []; }
+    renderFilterBar();
+  }
+
+  function renderFilterBar() {
+    filterBar.innerHTML = '';
+    // "All" pill
+    const allPill = document.createElement('button');
+    allPill.className = `tag-pill${activeTagId === null ? ' tag-pill-active' : ''}`;
+    allPill.textContent = t('allContacts');
+    allPill.onclick = () => { activeTagId = null; renderFilterBar(); renderFriendList(); };
+    filterBar.appendChild(allPill);
+
+    // Tag pills
+    tags.forEach(tag => {
+      const pill = document.createElement('button');
+      pill.className = `tag-pill${activeTagId === tag.id ? ' tag-pill-active' : ''}`;
+      pill.innerHTML = `<span class="tag-pill-dot" style="background:${tag.color}"></span>${esc(tag.name)}`;
+      pill.onclick = () => {
+        activeTagId = activeTagId === tag.id ? null : tag.id;
+        renderFilterBar();
+        renderFriendList();
+      };
+      filterBar.appendChild(pill);
+    });
+
+    // Manage button
+    const mgrBtn = document.createElement('button');
+    mgrBtn.className = 'tag-pill tag-manage-btn';
+    mgrBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
+    mgrBtn.title = t('manageTags');
+    mgrBtn.onclick = () => {
+      openTagManager(async () => {
+        // Refresh tags and contact tags
+        await loadTags();
+        state.contacts = await api.friends();
+        renderFriendList();
+      });
+    };
+    filterBar.appendChild(mgrBtn);
+  }
 
   // ── Friend requests ─────────────────────────────────────────────
   async function loadRequests() {
@@ -68,16 +120,26 @@ export function renderContacts(root) {
   // ── Friend list ─────────────────────────────────────────────────
   function renderFriendList() {
     listEl.innerHTML = '';
-    if (!state.contacts.length) {
+    let friends = [...state.contacts];
+
+    // Filter by tag if active
+    if (activeTagId !== null) {
+      friends = friends.filter(f =>
+        f.tags && f.tags.some(t => Number(t.id) === Number(activeTagId))
+      );
+    }
+
+    if (!friends.length) {
       listEl.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon"><svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" opacity=".5"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
-          <div class="empty-title">${t('noContacts')}</div>
-          <div class="empty-hint">${t('noContactsHint')}</div>
+          <div class="empty-title">${activeTagId !== null ? t('noResults') : t('noContacts')}</div>
+          <div class="empty-hint">${activeTagId !== null ? '' : t('noContactsHint')}</div>
         </div>`;
       return;
     }
-    const sorted = [...state.contacts].sort((a, b) =>
+
+    const sorted = friends.sort((a, b) =>
       (a.nickname || a.username).localeCompare(b.nickname || b.username));
 
     sorted.forEach(f => {
@@ -92,12 +154,38 @@ export function renderContacts(root) {
         avWrap.appendChild(dot);
       }
       item.appendChild(avWrap);
+
       const info = document.createElement('div');
       info.className = 'flex-1';
+      let tagHtml = '';
+      if (f.tags && f.tags.length) {
+        tagHtml = '<div class="friend-tags">' +
+          f.tags.map(t => `<span class="friend-tag-badge" style="background:${t.color}20;color:${t.color}">${esc(t.name)}</span>`).join('') +
+          '</div>';
+      }
       info.innerHTML = `
         <div style="font-size:16px;font-weight:500">${esc(f.nickname || f.username)}</div>
-        <div class="text-muted" style="font-size:13px">@${esc(f.username)}${f.is_online ? ` · <span style="color:var(--green)">${t('online')}</span>` : ''}</div>`;
+        <div class="text-muted" style="font-size:13px">@${esc(f.username)}${f.is_online ? ` · <span style="color:var(--green)">${t('online')}</span>` : ''}</div>
+        ${tagHtml}`;
       item.appendChild(info);
+
+      // Tag button
+      const tagBtn = document.createElement('button');
+      tagBtn.className = 'friend-tag-btn icon-btn';
+      tagBtn.title = t('setTags');
+      tagBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" opacity=".5">
+        <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+      </svg>`;
+      tagBtn.onclick = (e) => {
+        e.stopPropagation();
+        openFriendTagPicker(f, async () => {
+          state.contacts = await api.friends();
+          await loadTags();
+          renderFriendList();
+        });
+      };
+      item.appendChild(tagBtn);
+
       item.onclick = () => openChat({ id: f.id, type: 'private', name: f.nickname || f.username, avatar: f.avatar });
       listEl.appendChild(item);
     });
@@ -111,9 +199,11 @@ export function renderContacts(root) {
     if (!q) {
       resultsEl.classList.add('hidden');
       listEl.classList.remove('hidden');
+      filterBar.style.display = '';
       return;
     }
     listEl.classList.add('hidden');
+    filterBar.style.display = 'none';
     resultsEl.classList.remove('hidden');
     resultsEl.innerHTML = `<div class="section-header">${t('searchUsers')}</div>`;
 
@@ -165,6 +255,7 @@ export function renderContacts(root) {
 
   renderFriendList();
   loadRequests();
+  loadTags();
 }
 
 function esc(s) {

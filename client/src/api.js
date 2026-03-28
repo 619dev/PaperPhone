@@ -90,6 +90,15 @@ export const api = {
   addComment:       (id, text) => req('POST', `/api/moments/${id}/comments`, { text }),
   deleteComment:    (mid, cid) => req('DELETE', `/api/moments/${mid}/comments/${cid}`),
 
+  // Friend Tags
+  tags:            ()         => req('GET',    '/api/tags'),
+  createTag:       (d)        => req('POST',   '/api/tags', d),
+  updateTag:       (id, d)    => req('PATCH',  `/api/tags/${id}`, d),
+  deleteTag:       (id)       => req('DELETE', `/api/tags/${id}`),
+  tagFriends:      (id, d)    => req('POST',   `/api/tags/${id}/friends`, d),
+  untagFriend:     (id, fid)  => req('DELETE', `/api/tags/${id}/friends/${fid}`),
+  tagFriendList:   (id)       => req('GET',    `/api/tags/${id}/friends`),
+
   // Push Notifications
   vapidKey:        ()    => req('GET',    '/api/push/vapid-key'),
   pushSubscribe:   (sub) => req('POST',   '/api/push/subscribe', sub),
