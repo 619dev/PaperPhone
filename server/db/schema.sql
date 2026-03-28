@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS messages (
   header      TEXT          DEFAULT NULL, -- ephemeral public key (for E2EE, recipient)
   self_ciphertext LONGTEXT  DEFAULT NULL, -- base64 encrypted payload (for sender)
   self_header TEXT          DEFAULT NULL, -- ephemeral public key (for E2EE, sender)
-  msg_type    ENUM('text','image','file','voice','video_call','system') NOT NULL DEFAULT 'text',
+  msg_type    ENUM('text','image','file','voice','video_call','system','sticker') NOT NULL DEFAULT 'text',
   created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   delivered   TINYINT(1)    NOT NULL DEFAULT 0,
   read_at     DATETIME      DEFAULT NULL,
@@ -148,6 +148,16 @@ SET @sql = IF(@col_check = 0,
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
+
+-- Migration: add 'sticker' to msg_type ENUM (idempotent)
+SET @mt_check = (SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'messages' AND COLUMN_NAME = 'msg_type');
+SET @mt_sql = IF(@mt_check NOT LIKE '%sticker%',
+  "ALTER TABLE messages MODIFY COLUMN msg_type ENUM('text','image','file','voice','video_call','system','sticker') NOT NULL DEFAULT 'text'",
+  'SELECT 1');
+PREPARE mt_stmt FROM @mt_sql;
+EXECUTE mt_stmt;
+DEALLOCATE PREPARE mt_stmt;
 
 -- ── Moments (朋友圈) ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS moments (
