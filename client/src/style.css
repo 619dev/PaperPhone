@@ -738,12 +738,13 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 8px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   align-content: flex-start;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  min-height: 0;
 }
 .esp-sticker-grid::-webkit-scrollbar { display: none; }
 
@@ -784,6 +785,7 @@ html, body {
 
 /* Individual sticker item */
 .esp-sticker-item {
+  width: calc(25% - 6px);
   aspect-ratio: 1;
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -795,6 +797,7 @@ html, body {
   border: 0.5px solid var(--glass-border);
   transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease;
   position: relative;
+  box-sizing: border-box;
 }
 .esp-sticker-item:hover {
   transform: scale(1.08);
@@ -804,9 +807,10 @@ html, body {
   transform: scale(0.95);
 }
 .esp-sticker-item img {
-  width: 80%;
-  height: 80%;
+  width: 85%;
+  height: 85%;
   object-fit: contain;
+  display: block;
 }
 
 /* Loading shimmer for stickers */
@@ -832,7 +836,7 @@ html, body {
 
 /* Sticker pack loading/empty states */
 .esp-sticker-status {
-  grid-column: 1 / -1;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
