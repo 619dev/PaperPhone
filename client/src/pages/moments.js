@@ -15,9 +15,9 @@ export function renderMoments(root) {
   page.className = 'page-moments';
   page.innerHTML = `
     <div class="topbar moments-topbar">
-      <button class="icon-btn" id="moments-back">‹</button>
+      <button class="icon-btn" id="moments-back"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
       <div class="topbar-title">${t('moments')}</div>
-      <button class="icon-btn" id="moments-compose"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+      <button class="icon-btn" id="moments-compose"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></button>
     </div>
     <div id="moments-feed" class="moments-feed"></div>
     <div id="moments-loading" class="moments-loading" style="display:none">
@@ -55,8 +55,10 @@ export function renderMoments(root) {
         exhausted = true;
         if (!append) {
           feed.innerHTML = `<div class="moments-empty">
-            <div style="margin-bottom:12px"><svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" opacity=".4"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg></div>
-            <div style="color:var(--text-secondary)">${t('noMoments') || '暂无动态，快去发布吧'}</div>
+            <div style="margin-bottom:4px"><svg viewBox="0 0 24 24" width="52" height="52" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".35">
+              <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            </svg></div>
+            <div style="color:var(--text-secondary);font-size:14px;font-weight:500">${t('noMoments') || '暂无动态，快去发布吧'}</div>
           </div>`;
         }
       } else {
@@ -105,7 +107,7 @@ export function renderMoments(root) {
     if (isMine) {
       const del = document.createElement('button');
       del.className = 'moment-delete-btn icon-btn';
-      del.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+      del.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
       del.title = '删除';
       del.onclick = async () => {
         if (!confirm(t('deleteConfirm') || '确认删除这条动态？')) return;
@@ -208,7 +210,7 @@ export function renderMoments(root) {
     };
     const cmtBtn = document.createElement('button');
     cmtBtn.className = 'moment-comment-btn';
-    cmtBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z"/></svg> ${(m.comments || []).length}`;
+    cmtBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> ${(m.comments || []).length}`;
     actions.appendChild(likeBtn);
     actions.appendChild(cmtBtn);
     card.appendChild(actions);
@@ -267,7 +269,7 @@ export function renderMoments(root) {
     card.className = 'like-list-card';
     card.innerHTML = `<div class="like-list-header">
       <span>${t('likedUsers')}</span>
-      <button class="icon-btn like-list-close"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+      <button class="icon-btn like-list-close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>`;
     const list = document.createElement('div');
     list.className = 'like-list-body';
@@ -296,7 +298,7 @@ export function renderMoments(root) {
       const isMine = c.user_id === state.user?.id;
       row.innerHTML = `<span class="comment-author">${c.nickname || c.username}:</span>
         <span class="comment-text">${c.text_content}</span>
-        ${isMine ? `<button class="comment-del-btn icon-btn" data-cid="${c.id}" title="删除"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>` : ''}`;
+        ${isMine ? `<button class="comment-del-btn icon-btn" data-cid="${c.id}" title="删除"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}`;
       if (isMine) {
         row.querySelector('.comment-del-btn').onclick = async () => {
           try {
@@ -304,7 +306,7 @@ export function renderMoments(root) {
             m.comments = m.comments.filter(x => x.id !== c.id);
             row.remove();
             cmtBtn.textContent = '';
-            cmtBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z"/></svg> ${m.comments.length}`;
+            cmtBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> ${m.comments.length}`;
           } catch { showToast('删除失败'); }
         };
       }
@@ -332,7 +334,7 @@ export function renderMoments(root) {
         m.comments.push({ id: r.id, user_id: state.user.id, text_content: txt,
           nickname: state.user.nickname, username: state.user.username });
         renderComments(cmtSection, m, cmtBtn);
-        cmtBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z"/></svg> ${m.comments.length}`;
+        cmtBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> ${m.comments.length}`;
         row.remove();
       } catch { showToast('发送失败'); }
     };
@@ -350,11 +352,11 @@ export function renderMoments(root) {
     const img = document.createElement('img');
     img.className = 'lightbox-img';
     const prev = document.createElement('button');
-    prev.className = 'lightbox-btn';  prev.textContent = '‹';
+    prev.className = 'lightbox-btn';  prev.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
     const next = document.createElement('button');
-    next.className = 'lightbox-btn';  next.textContent = '›';
+    next.className = 'lightbox-btn';  next.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
     const close = document.createElement('button');
-    close.className = 'lightbox-close';  close.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+    close.className = 'lightbox-close';  close.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
     overlay.append(close, prev, img, next);
     document.body.appendChild(overlay);
 
@@ -535,7 +537,7 @@ export function renderMoments(root) {
           img.src = url;
           const rm = document.createElement('button');
           rm.className = 'compose-thumb-rm';
-          rm.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="#fff"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+          rm.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
           rm.onclick = e => {
             e.stopPropagation();
             uploadedUrls = uploadedUrls.filter(u => u !== url);
