@@ -1168,6 +1168,28 @@ html, body {
   text-align: center; position: relative; z-index: 1;
 }
 
+/* ── Flaticon Uicons — Moments & Compose sizing ─────────────── */
+.moments-topbar .icon-btn .fi { font-size: 20px; line-height: 1; }
+#moments-compose .fi { font-size: 19px; }
+.moment-delete-btn .fi { font-size: 14px; }
+.moment-like-btn .fi,
+.moment-comment-btn .fi { font-size: 14px; vertical-align: middle; }
+.moment-like-btn.liked .fi { color: #FF3B5C; }
+.like-avatars-heart .fi { font-size: 12px; color: #FF3B5C; }
+.like-list-close .fi { font-size: 18px; }
+.comment-del-btn .fi { font-size: 11px; }
+.moments-empty-icon {
+  font-size: 48px; color: var(--text-muted); opacity: .35; margin-bottom: 8px;
+  display: block;
+}
+.lightbox-btn .fi { font-size: 20px; color: #fff; }
+.lightbox-close .fi { font-size: 16px; color: #fff; }
+.compose-photo-btn .fi { font-size: 20px; vertical-align: middle; }
+.compose-vis-btn .fi { font-size: 16px; vertical-align: middle; opacity: .7; }
+.compose-vis-active .fi { opacity: 1; }
+.compose-thumb-rm .fi { font-size: 10px; color: #fff; }
+.discover-chevron .fi { font-size: 14px; }
+
 /* ── Moments (朋友圈) ───────────────────────────────────────── */
 .page-moments { display:flex; flex-direction:column; height:100%; }
 .moments-topbar { position:sticky; top:0; z-index:10; }
