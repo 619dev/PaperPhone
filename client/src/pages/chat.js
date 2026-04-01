@@ -3,6 +3,7 @@
  */
 import { state, avatarEl, goBack, showToast, formatTime, openGroupInfo } from '../app.js';
 import { api } from '../api.js';
+import { uploadFileWithRing } from '../uploadProgress.js';
 import { send, onEvent, offEvent } from '../socket.js';
 import { getKey } from '../crypto/keystore.js';
 import { encryptMessage, encryptMessageDual, decryptMessage } from '../crypto/ratchet.js';
@@ -478,8 +479,7 @@ export async function renderChat(root, chat) {
     const file = fileInput.files[0];
     if (!file) return;
     try {
-      showToast(t('uploading'));
-      const { url } = await api.upload(file);
+      const { url } = await uploadFileWithRing(api, file, t('uploading'));
       sendMessage(url, 'image', { url });
     } catch { showToast(t('uploadFailed')); }
     fileInput.value = '';
@@ -490,8 +490,7 @@ export async function renderChat(root, chat) {
     const file = videoInput.files[0];
     if (!file) return;
     try {
-      showToast(t('uploading'));
-      const res = await api.upload(file);
+      const res = await uploadFileWithRing(api, file, t('uploading'));
       const meta = JSON.stringify({ url: res.url, fileName: res.name, fileSize: res.size, fileType: res.type });
       sendMessage(meta, 'video', { url: res.url });
     } catch { showToast(t('uploadFailed')); }
@@ -503,8 +502,7 @@ export async function renderChat(root, chat) {
     const file = docInput.files[0];
     if (!file) return;
     try {
-      showToast(t('uploading'));
-      const res = await api.upload(file);
+      const res = await uploadFileWithRing(api, file, file.name);
       const meta = JSON.stringify({ url: res.url, fileName: res.name, fileSize: res.size, fileType: res.type });
       sendMessage(meta, 'file', { url: res.url, fileName: res.name, fileSize: res.size, fileType: res.type });
     } catch { showToast(t('uploadFailed')); }
@@ -598,8 +596,7 @@ export async function renderChat(root, chat) {
       const blob = new Blob(recChunks, { type: 'audio/webm' });
       const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
       try {
-        showToast(t('sendingVoice'));
-        const { url } = await api.upload(file);
+        const { url } = await uploadFileWithRing(api, file, t('sendingVoice'));
         sendMessage(url, 'voice', { url, duration });
       } catch { showToast(t('uploadFailed')); }
     };

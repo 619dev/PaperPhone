@@ -3,6 +3,7 @@
  */
 import { state, showToast, avatarEl } from '../app.js';
 import { api, clearToken } from '../api.js';
+import { uploadFileWithRing } from '../uploadProgress.js';
 import { disconnect } from '../socket.js';
 import { t, getLang, getLangName, getLangFlag, getSupportedLangs, setLang, onLangChange, offLangChange } from '../i18n.js';
 import { isPushSupported, isPushSubscribed, subscribePush, unsubscribePush, getPermissionState } from '../services/pushNotification.js';
@@ -125,8 +126,7 @@ export function renderProfile(root) {
       const file = avatarFileInput.files[0];
       if (!file) return;
       try {
-        showToast(t('uploading'));
-        const { url } = await api.upload(file);
+        const { url } = await uploadFileWithRing(api, file, t('uploading'));
         await api.updateMe({ avatar: url });
         state.user.avatar = url;
         showToast(t('avatarUpdated'));

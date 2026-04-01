@@ -3,6 +3,7 @@
  */
 import { t } from '../i18n.js';
 import { api } from '../api.js';
+import { showUploadRing, updateUploadRing, hideUploadRing } from '../uploadProgress.js';
 import { state } from '../app.js';
 
 let _root, _posts = [], _loading = false, _noMore = false;
@@ -387,8 +388,14 @@ function openCompose() {
     try {
       // Upload all media files
       const uploadedMedia = [];
-      for (const item of mediaFiles) {
-        const res = await api.upload(item.file);
+      const ring = showUploadRing(null, `0 / ${mediaFiles.length}`);
+      for (let i = 0; i < mediaFiles.length; i++) {
+        const item = mediaFiles[i];
+        updateUploadRing(ring, 0, `${i + 1} / ${mediaFiles.length}`);
+        const res = await api.uploadWithProgress(item.file, pct => {
+          const overall = ((i + pct / 100) / mediaFiles.length) * 100;
+          updateUploadRing(ring, overall, `${i + 1} / ${mediaFiles.length}`);
+        });
         uploadedMedia.push({
           url: res.url,
           media_type: item.media_type,
@@ -396,6 +403,7 @@ function openCompose() {
           duration: item.duration || 0,
         });
       }
+      hideUploadRing(ring);
 
       await api.createTimelinePost({
         text_content: text,

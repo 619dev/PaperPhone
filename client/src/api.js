@@ -82,6 +82,38 @@ export const api = {
     return req('POST', '/api/upload', fd, true);
   },
 
+  /**
+   * Upload with progress callback — uses XHR for upload progress events.
+   * @param {File} file
+   * @param {(pct: number) => void} onProgress  — 0..100
+   * @returns {Promise<{url: string, name: string, size: number, type: string}>}
+   */
+  uploadWithProgress: (file, onProgress) => {
+    return new Promise((resolve, reject) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${BASE}/api/upload`);
+      if (_token) xhr.setRequestHeader('Authorization', `Bearer ${_token}`);
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable && onProgress) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { resolve(JSON.parse(xhr.responseText)); } catch { resolve({}); }
+        } else {
+          let msg = `HTTP ${xhr.status}`;
+          try { const j = JSON.parse(xhr.responseText); msg = j.error || msg; } catch {}
+          reject(new Error(msg));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.send(fd);
+    });
+  },
+
   // Moments (朋友圈)
   momentsFeed:      (before) => req('GET', `/api/moments${before ? `?before=${before}` : ''}`),
   createMoment:     (d)      => req('POST', '/api/moments', d),

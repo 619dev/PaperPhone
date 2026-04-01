@@ -3,6 +3,7 @@
  * WeChat-style social feed: text + up to 9 images OR 1 video (≤10min), likes with avatars, comments, visibility control
  */
 import { api } from '../api.js';
+import { showUploadRing, updateUploadRing, hideUploadRing } from '../uploadProgress.js';
 import { state, showToast, avatarEl, formatTime } from '../app.js';
 import { t } from '../i18n.js';
 import { openVisibilityPicker } from '../components/tagManager.js';
@@ -624,11 +625,15 @@ export function renderMoments(root) {
       for (const file of files) {
         const thumb = document.createElement('div');
         thumb.className = 'compose-thumb compose-thumb-loading';
-        thumb.innerHTML = `<div class="compose-thumb-spinner"></div>`;
+        thumb.style.position = 'relative';
         imagesDiv.appendChild(thumb);
+        const ring = showUploadRing(thumb);
 
         try {
-          const { url } = await api.upload(file);
+          const { url } = await api.uploadWithProgress(file, pct => {
+            updateUploadRing(ring, pct);
+          });
+          hideUploadRing(ring);
           uploadedUrls.push(url);
           thumb.classList.remove('compose-thumb-loading');
           thumb.innerHTML = '';
@@ -686,12 +691,11 @@ export function renderMoments(root) {
         return;
       }
 
-      // Show loading state
+      // Show loading state with progress ring
       videoPreviewDiv.style.display = '';
-      videoPreviewDiv.innerHTML = `<div class="compose-video-loading">
-        <div class="compose-thumb-spinner"></div>
-        <span>${t('uploading') || '上传中...'}</span>
-      </div>`;
+      videoPreviewDiv.style.position = 'relative';
+      videoPreviewDiv.innerHTML = `<div class="compose-video-loading" style="min-height:120px"></div>`;
+      const ring = showUploadRing(videoPreviewDiv, t('uploading') || '上传中...');
       syncMediaButtons();
 
       try {
@@ -699,8 +703,10 @@ export function renderMoments(root) {
         const thumbnailBlob = await generateVideoThumbnail(file);
 
         // Upload video file
-        const videoResult = await api.upload(file);
-
+        const videoResult = await api.uploadWithProgress(file, pct => {
+          updateUploadRing(ring, pct);
+        });
+        hideUploadRing(ring);
         // Upload thumbnail
         let thumbnailUrl = null;
         if (thumbnailBlob) {

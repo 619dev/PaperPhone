@@ -4176,3 +4176,86 @@ html, body {
   padding: 12px 0;
   border-top: 0.5px solid var(--divider);
 }
+
+/* ── Upload Progress Ring ─────────────────────────────────── */
+.upload-ring-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity .2s ease;
+  pointer-events: auto;
+}
+.upload-ring-inline {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.4);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.upload-ring-visible {
+  opacity: 1;
+}
+.upload-ring-hide {
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+
+.upload-ring-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-ring-circle {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.upload-ring-circle svg {
+  position: absolute;
+  top: 0; left: 0;
+}
+.upload-ring-bg {
+  stroke: rgba(255,255,255,.15);
+}
+.upload-ring-fg {
+  stroke: var(--green, #07C160);
+  filter: drop-shadow(0 0 6px rgba(7,193,96,.5));
+  transition: stroke-dashoffset .25s cubic-bezier(.4,0,.2,1);
+}
+.upload-ring-pct {
+  position: relative;
+  z-index: 1;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.4);
+  letter-spacing: -0.5px;
+}
+.upload-ring-label {
+  font-size: 13px;
+  color: rgba(255,255,255,.85);
+  text-shadow: 0 1px 3px rgba(0,0,0,.3);
+  text-align: center;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
