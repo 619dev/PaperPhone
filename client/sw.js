@@ -3,7 +3,7 @@
  * Cache-first for shell assets, network-first for API
  * + Web Push notification handler
  */
-const CACHE = 'paperphone-v3';
+const CACHE = 'paperphone-v4';
 const SHELL = [
   '/',
   '/index.html',
@@ -112,7 +112,19 @@ self.addEventListener('notificationclick', e => {
   const action = e.action;
 
   // Decline action — just close the notification, do nothing else
-  if (action === 'decline') return;
+  if (action === 'decline') {
+    // Optionally notify the client to dismiss the call
+    e.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin)) {
+            client.postMessage({ type: 'incoming_call_declined', call_id: data.call_id });
+          }
+        }
+      })
+    );
+    return;
+  }
 
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
@@ -131,7 +143,15 @@ self.addEventListener('notificationclick', e => {
           return client.focus();
         }
       }
-      // Otherwise, open a new window
+      // Otherwise, open a new window with call data in URL hash
+      if (data.type === 'incoming_call') {
+        const params = new URLSearchParams({
+          call_from: data.from || '',
+          call_id: data.call_id || '',
+          is_video: data.is_video ? '1' : '0',
+        });
+        return clients.openWindow('/#incoming_call?' + params.toString());
+      }
       return clients.openWindow('/');
     })
   );

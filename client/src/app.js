@@ -166,6 +166,8 @@ export async function navigateAfterLogin(userData) {
   render();
   initCallUI();
   tryAutoSubscribe().catch(() => {});
+  _checkIncomingCallFromHash();
+  _listenServiceWorkerMessages();
 }
 
 function render() {
@@ -376,12 +378,106 @@ async function init() {
   initCallUI();
   tryAutoSubscribe().catch(() => {});
 
+  // ── Restore incoming call from push notification click ───────────────
+  _checkIncomingCallFromHash();
+  _listenServiceWorkerMessages();
+
   // Always check for missing keys AFTER render (never inside a try that swallows errors)
   try {
     const { getKey, setKey: setK } = await import('./crypto/keystore.js');
     const ikCheck = await getKey('ik');
     if (!ikCheck) _showKeyRepairBanner(getKey, setK);
   } catch { /* keystore unavailable */ }
+}
+
+/**
+ * Check URL hash for incoming call data passed by the Service Worker.
+ * Format: #incoming_call?call_from=...&call_id=...&is_video=0|1
+ */
+function _checkIncomingCallFromHash() {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#incoming_call?')) return;
+
+  const paramStr = hash.replace('#incoming_call?', '');
+  const params = new URLSearchParams(paramStr);
+  const from = params.get('call_from');
+  const callId = params.get('call_id');
+  const isVideo = params.get('is_video') === '1';
+
+  // Clear the hash so it doesn't re-trigger on refresh
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+
+  if (!from || !callId) return;
+
+  // Find the caller in contacts for name/avatar
+  const contact = state.contacts.find(c => c.id === from);
+  const callerName = contact ? (contact.nickname || contact.username) : from;
+  const callerAvatar = contact?.avatar || null;
+
+  // Only trigger ringing if callManager is idle (no active call)
+  if (callManager.state === 'idle') {
+    callManager.callInfo = {
+      peerId: from,
+      name: callerName,
+      avatar: callerAvatar,
+      isVideo,
+      callId: callId,
+      isGroup: false,
+    };
+    callManager._setState('ringing');
+  }
+}
+
+/**
+ * Listen for messages from the Service Worker (e.g. notification click).
+ * Restores the incoming call ringing UI when user taps a call notification
+ * while the app is already open in the background.
+ */
+let _swListenerRegistered = false;
+function _listenServiceWorkerMessages() {
+  if (_swListenerRegistered) return;
+  _swListenerRegistered = true;
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data) return;
+
+    if (data.type === 'incoming_call_clicked') {
+      const { from, call_id, is_video } = data;
+      if (!from || !call_id) return;
+
+      const contact = state.contacts.find(c => c.id === from);
+      const callerName = contact ? (contact.nickname || contact.username) : from;
+      const callerAvatar = contact?.avatar || null;
+
+      // If callManager is already ringing for this call, just ensure UI is shown
+      if (callManager.state === 'ringing' && callManager.callInfo?.callId === call_id) {
+        // Already ringing — UI should already be visible
+        return;
+      }
+
+      // If callManager is idle, restore the ringing state
+      if (callManager.state === 'idle') {
+        callManager.callInfo = {
+          peerId: from,
+          name: callerName,
+          avatar: callerAvatar,
+          isVideo: !!is_video,
+          callId: call_id,
+          isGroup: false,
+        };
+        callManager._setState('ringing');
+      }
+    }
+
+    if (data.type === 'incoming_call_declined') {
+      // User declined from the notification — reject the call if we are ringing
+      if (callManager.state === 'ringing' && callManager.callInfo?.callId === data.call_id) {
+        callManager.rejectCall();
+      }
+    }
+  });
 }
 
 function _showKeyRepairBanner(getKey, setK) {
