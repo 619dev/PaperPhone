@@ -111,6 +111,9 @@ function initWsServer(httpServer) {
 
           ws.send(JSON.stringify({ type: 'auth_ok', user_id: payload.id }));
 
+          // Flush pending call signaling from Redis (call_offer / call_invite)
+          await flushPendingCallSignaling(payload.id, ws, redis);
+
           // Flush offline messages stored in DB
           await flushOfflineMessages(payload.id, ws, db);
         } catch {
@@ -242,10 +245,46 @@ function initWsServer(httpServer) {
         const envelope = { ...msg, from: ws.userId };
         if (msg.to) {
           // 1-to-1 signaling
-          sendToUser(msg.to, envelope);
+          const delivered = sendToUser(msg.to, envelope);
+          // Store call_offer / call_invite in Redis so they survive WS drops.
+          // When the callee reconnects, flushPendingCallSignaling will deliver it.
+          if (msg.type === 'call_offer' || msg.type === 'call_invite') {
+            const redis = getRedis();
+            await redis.set(
+              `pending_call:${msg.to}`,
+              JSON.stringify(envelope),
+              { EX: 60 } // expire after 60 seconds
+            ).catch(() => {});
+          }
         } else if (msg.group_id) {
           // Group call — broadcast to all group members except sender
           await sendToGroup(msg.group_id, envelope, ws.userId);
+          // Store pending call for offline group members
+          if (msg.type === 'call_offer' || msg.type === 'call_invite') {
+            const db = getDb();
+            const redis = getRedis();
+            const [members] = await db.query(
+              'SELECT user_id FROM group_members WHERE group_id = ? AND user_id != ?',
+              [msg.group_id, ws.userId]
+            );
+            for (const { user_id } of members) {
+              await redis.set(
+                `pending_call:${user_id}`,
+                JSON.stringify(envelope),
+                { EX: 60 }
+              ).catch(() => {});
+            }
+          }
+        }
+
+        // Clean up pending call signaling from Redis on end/reject/cancel
+        if (['call_end', 'call_reject', 'call_cancel'].includes(msg.type)) {
+          const redis = getRedis();
+          if (msg.to) {
+            await redis.del(`pending_call:${msg.to}`).catch(() => {});
+          }
+          // Also clear our own pending call (the other party might have stored one for us)
+          await redis.del(`pending_call:${ws.userId}`).catch(() => {});
         }
 
         // ── Push notification for incoming calls ─────────────────────
@@ -318,6 +357,25 @@ function initWsServer(httpServer) {
 
   console.log('✅ WebSocket server initialized');
   return wss;
+}
+
+/**
+ * Deliver any pending call signaling stored in Redis when user reconnects.
+ * This handles the case where a call_offer or call_invite was sent while the
+ * user's WebSocket was disconnected (e.g. app backgrounded on mobile).
+ */
+async function flushPendingCallSignaling(userId, ws, redis) {
+  try {
+    const raw = await redis.get(`pending_call:${userId}`);
+    if (!raw) return;
+
+    const signaling = JSON.parse(raw);
+    if (ws.readyState === 1 /* WebSocket.OPEN */) {
+      ws.send(raw); // already a JSON string
+    }
+    // Delete after delivery — the callee now has the offer
+    await redis.del(`pending_call:${userId}`).catch(() => {});
+  } catch { /* ignore parse/network errors */ }
 }
 
 async function flushOfflineMessages(userId, ws, db) {

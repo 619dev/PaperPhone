@@ -166,8 +166,10 @@ export async function navigateAfterLogin(userData) {
   render();
   initCallUI();
   tryAutoSubscribe().catch(() => {});
-  _checkIncomingCallFromHash();
+  _checkIncomingCallFromURL();
   _listenServiceWorkerMessages();
+  _requestPendingCallFromSW();
+  _listenVisibilityChange();
 }
 
 function render() {
@@ -379,8 +381,10 @@ async function init() {
   tryAutoSubscribe().catch(() => {});
 
   // ── Restore incoming call from push notification click ───────────────
-  _checkIncomingCallFromHash();
+  _checkIncomingCallFromURL();
   _listenServiceWorkerMessages();
+  _requestPendingCallFromSW();
+  _listenVisibilityChange();
 
   // Always check for missing keys AFTER render (never inside a try that swallows errors)
   try {
@@ -390,41 +394,56 @@ async function init() {
   } catch { /* keystore unavailable */ }
 }
 
-/**
- * Check URL hash for incoming call data passed by the Service Worker.
- * Format: #incoming_call?call_from=...&call_id=...&is_video=0|1
- */
-function _checkIncomingCallFromHash() {
-  const hash = window.location.hash;
-  if (!hash.startsWith('#incoming_call?')) return;
-
-  const paramStr = hash.replace('#incoming_call?', '');
-  const params = new URLSearchParams(paramStr);
-  const from = params.get('call_from');
-  const callId = params.get('call_id');
-  const isVideo = params.get('is_video') === '1';
-
-  // Clear the hash so it doesn't re-trigger on refresh
-  history.replaceState(null, '', window.location.pathname + window.location.search);
-
+// ── Shared helper: trigger ringing UI from notification data ──────────────
+function _triggerRingingFromNotification(from, callId, isVideo) {
   if (!from || !callId) return;
+  if (callManager.state !== 'idle') return; // don't interrupt active calls
 
-  // Find the caller in contacts for name/avatar
   const contact = state.contacts.find(c => c.id === from);
   const callerName = contact ? (contact.nickname || contact.username) : from;
   const callerAvatar = contact?.avatar || null;
 
-  // Only trigger ringing if callManager is idle (no active call)
-  if (callManager.state === 'idle') {
-    callManager.callInfo = {
-      peerId: from,
-      name: callerName,
-      avatar: callerAvatar,
-      isVideo,
-      callId: callId,
-      isGroup: false,
-    };
-    callManager._setState('ringing');
+  callManager.callInfo = {
+    peerId: from,
+    name: callerName,
+    avatar: callerAvatar,
+    isVideo: !!isVideo,
+    callId: callId,
+    isGroup: false,
+  };
+  callManager._setState('ringing');
+}
+
+/**
+ * Check URL query params for incoming call data passed by the Service Worker.
+ * Format: ?pp_call_from=...&pp_call_id=...&pp_is_video=0|1
+ * Also checks hash format for backwards compatibility.
+ */
+function _checkIncomingCallFromURL() {
+  // 1. Check query params (primary method)
+  const urlParams = new URLSearchParams(window.location.search);
+  let from = urlParams.get('pp_call_from');
+  let callId = urlParams.get('pp_call_id');
+  let isVideo = urlParams.get('pp_is_video') === '1';
+
+  if (from && callId) {
+    // Clean URL so it doesn't re-trigger on refresh
+    history.replaceState(null, '', window.location.pathname);
+    _triggerRingingFromNotification(from, callId, isVideo);
+    return;
+  }
+
+  // 2. Check hash format (backwards compat)
+  const hash = window.location.hash;
+  if (hash.startsWith('#incoming_call?')) {
+    const paramStr = hash.replace('#incoming_call?', '');
+    const hashParams = new URLSearchParams(paramStr);
+    from = hashParams.get('call_from') || hashParams.get('pp_call_from');
+    callId = hashParams.get('call_id') || hashParams.get('pp_call_id');
+    isVideo = (hashParams.get('is_video') || hashParams.get('pp_is_video')) === '1';
+
+    history.replaceState(null, '', window.location.pathname);
+    _triggerRingingFromNotification(from, callId, isVideo);
   }
 }
 
@@ -444,31 +463,7 @@ function _listenServiceWorkerMessages() {
     if (!data) return;
 
     if (data.type === 'incoming_call_clicked') {
-      const { from, call_id, is_video } = data;
-      if (!from || !call_id) return;
-
-      const contact = state.contacts.find(c => c.id === from);
-      const callerName = contact ? (contact.nickname || contact.username) : from;
-      const callerAvatar = contact?.avatar || null;
-
-      // If callManager is already ringing for this call, just ensure UI is shown
-      if (callManager.state === 'ringing' && callManager.callInfo?.callId === call_id) {
-        // Already ringing — UI should already be visible
-        return;
-      }
-
-      // If callManager is idle, restore the ringing state
-      if (callManager.state === 'idle') {
-        callManager.callInfo = {
-          peerId: from,
-          name: callerName,
-          avatar: callerAvatar,
-          isVideo: !!is_video,
-          callId: call_id,
-          isGroup: false,
-        };
-        callManager._setState('ringing');
-      }
+      _triggerRingingFromNotification(data.from, data.call_id, data.is_video);
     }
 
     if (data.type === 'incoming_call_declined') {
@@ -477,6 +472,36 @@ function _listenServiceWorkerMessages() {
         callManager.rejectCall();
       }
     }
+  });
+}
+
+/**
+ * Ask the SW if there is pending call data (fallback for when postMessage
+ * was missed or the page was just opened).
+ */
+function _requestPendingCallFromSW() {
+  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+  try {
+    navigator.serviceWorker.controller.postMessage({ type: 'get_pending_call' });
+  } catch { /* SW not available */ }
+}
+
+/**
+ * When the app returns to the foreground (visibilitychange), re-request
+ * pending call data from the SW and ensure the WS is connected.
+ */
+let _visListenerRegistered = false;
+function _listenVisibilityChange() {
+  if (_visListenerRegistered) return;
+  _visListenerRegistered = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !state.user) return;
+
+    // Reconnect WS if needed (it may have dropped while backgrounded)
+    connect();
+
+    // Ask SW for any pending call data we might have missed
+    _requestPendingCallFromSW();
   });
 }
 

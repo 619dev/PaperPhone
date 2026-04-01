@@ -3,7 +3,7 @@
  * Cache-first for shell assets, network-first for API
  * + Web Push notification handler
  */
-const CACHE = 'paperphone-v4';
+const CACHE = 'paperphone-v5';
 const SHELL = [
   '/',
   '/index.html',
@@ -104,6 +104,9 @@ self.addEventListener('push', e => {
   );
 });
 
+// ── Pending call data (stored in SW scope for client retrieval) ───────────
+let _pendingCallData = null;
+
 // ── Notification Click Handler ───────────────────────────────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
@@ -111,9 +114,8 @@ self.addEventListener('notificationclick', e => {
   const data = e.notification.data || {};
   const action = e.action;
 
-  // Decline action — just close the notification, do nothing else
+  // Decline action — notify all clients to dismiss the call
   if (action === 'decline') {
-    // Optionally notify the client to dismiss the call
     e.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
         for (const client of windowClients) {
@@ -126,12 +128,22 @@ self.addEventListener('notificationclick', e => {
     return;
   }
 
+  // Accept action or body click — show ringing UI
+  // Store the call data so newly opened windows can retrieve it
+  if (data.type === 'incoming_call') {
+    _pendingCallData = {
+      from: data.from,
+      call_id: data.call_id,
+      is_video: data.is_video,
+      ts: Date.now(),
+    };
+  }
+
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-      // If a PaperPhone window is already open, focus it
+      // If a PaperPhone window is already open, post message and focus it
       for (const client of windowClients) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          // Notify the client about the incoming call click
           if (data.type === 'incoming_call') {
             client.postMessage({
               type: 'incoming_call_clicked',
@@ -143,16 +155,30 @@ self.addEventListener('notificationclick', e => {
           return client.focus();
         }
       }
-      // Otherwise, open a new window with call data in URL hash
+      // No existing window — open a new one with call data in query params
       if (data.type === 'incoming_call') {
         const params = new URLSearchParams({
-          call_from: data.from || '',
-          call_id: data.call_id || '',
-          is_video: data.is_video ? '1' : '0',
+          pp_call_from: data.from || '',
+          pp_call_id: data.call_id || '',
+          pp_is_video: data.is_video ? '1' : '0',
         });
-        return clients.openWindow('/#incoming_call?' + params.toString());
+        return clients.openWindow('/?' + params.toString());
       }
       return clients.openWindow('/');
     })
   );
+});
+
+// ── Handle messages from client pages ────────────────────────────────────
+self.addEventListener('message', e => {
+  // Client requests pending call data (e.g. after fresh page load)
+  if (e.data && e.data.type === 'get_pending_call') {
+    if (_pendingCallData && (Date.now() - _pendingCallData.ts) < 60000) {
+      e.source.postMessage({
+        type: 'incoming_call_clicked',
+        ..._pendingCallData,
+      });
+      _pendingCallData = null; // consumed
+    }
+  }
 });
