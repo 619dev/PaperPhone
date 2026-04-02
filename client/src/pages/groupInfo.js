@@ -4,6 +4,9 @@
 import { state, avatarEl, showToast, goBack, navigateTo } from '../app.js';
 import { api } from '../api.js';
 import { t } from '../i18n.js';
+import { uploadFileWithRing } from '../uploadProgress.js';
+import { refreshGroupList, } from './groups.js';
+import { refreshChatList } from './chats.js';
 
 const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -51,19 +54,137 @@ export async function renderGroupInfo(root, groupId) {
   const header = document.createElement('div');
   header.className = 'group-info-header';
   header.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:24px 16px 16px;';
+
+  // Avatar — owner can click to change
+  const avWrap = document.createElement('div');
+  avWrap.style.cssText = 'position:relative;cursor:' + (isOwner ? 'pointer' : 'default') + ';';
+
   const av = avatarEl(info.name, info.avatar, 'avatar-lg');
   av.style.cssText = 'width:72px;height:72px;font-size:28px;border-radius:20px;margin-bottom:12px;';
-  header.appendChild(av);
+  av.id = 'gi-avatar-img';
+  avWrap.appendChild(av);
+
+  if (isOwner) {
+    // Camera badge overlay
+    const badge = document.createElement('div');
+    badge.className = 'avatar-camera-badge';
+    badge.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="#fff"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>`;
+    avWrap.appendChild(badge);
+
+    // Hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.className = 'hidden';
+    fileInput.id = 'gi-avatar-file';
+    avWrap.appendChild(fileInput);
+
+    avWrap.onclick = () => fileInput.click();
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      try {
+        const { url } = await uploadFileWithRing(api, file, t('uploading'));
+        await api.updateGroup(groupId, { avatar: url });
+        info.avatar = url;
+        // Update local state
+        const groupEntry = (state.groupsList || []).find(g => g.id === groupId);
+        if (groupEntry) groupEntry.avatar = url;
+        const chatEntry = state.chats.find(c => c.id === groupId);
+        if (chatEntry) chatEntry.avatar = url;
+        refreshGroupList();
+        refreshChatList();
+        // Replace avatar in the header
+        const oldAvEl = avWrap.querySelector('#gi-avatar-img');
+        const newAv = avatarEl(info.name, url, 'avatar-lg');
+        newAv.style.cssText = 'width:72px;height:72px;font-size:28px;border-radius:20px;margin-bottom:12px;';
+        newAv.id = 'gi-avatar-img';
+        avWrap.replaceChild(newAv, oldAvEl);
+        showToast(t('groupAvatarUpdated'));
+      } catch { showToast(t('groupAvatarFailed')); }
+      fileInput.value = '';
+    });
+  }
+
+  header.appendChild(avWrap);
+
   const nameEl = document.createElement('div');
+  nameEl.id = 'gi-group-name';
   nameEl.style.cssText = 'font-size:20px;font-weight:600;margin-bottom:4px;';
   nameEl.textContent = info.name;
   header.appendChild(nameEl);
+
   const countEl = document.createElement('div');
   countEl.className = 'text-muted';
   countEl.style.fontSize = '14px';
   countEl.textContent = `${info.member_count} ${t('nMembers')}`;
   header.appendChild(countEl);
   content.appendChild(header);
+
+  // ── Owner Settings (change name / avatar) ──
+  if (isOwner) {
+    const ownerSection = document.createElement('div');
+    ownerSection.className = 'settings-section';
+
+    // Change avatar row
+    const avatarRow = document.createElement('div');
+    avatarRow.className = 'list-item';
+    avatarRow.style.cursor = 'pointer';
+    avatarRow.innerHTML = `
+      <div style="flex:1;display:flex;align-items:center;gap:10px;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--text-muted)">
+          <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
+          <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+        </svg>
+        <span style="font-size:15px;font-weight:500;">${t('changeGroupAvatar')}</span>
+      </div>
+      <span style="color:var(--text-muted);font-size:16px;">›</span>
+    `;
+    avatarRow.onclick = () => {
+      const fi = avWrap.querySelector('#gi-avatar-file');
+      if (fi) fi.click();
+    };
+    ownerSection.appendChild(avatarRow);
+
+    // Change name row
+    const nameRow = document.createElement('div');
+    nameRow.className = 'list-item';
+    nameRow.style.cursor = 'pointer';
+    nameRow.innerHTML = `
+      <div style="flex:1;display:flex;align-items:center;gap:10px;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--text-muted)">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+        <span style="font-size:15px;font-weight:500;">${t('changeGroupName')}</span>
+      </div>
+      <span id="gi-cur-name" class="text-muted" style="font-size:14px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(info.name)}</span>
+      <span style="color:var(--text-muted);font-size:16px;margin-left:4px;">›</span>
+    `;
+    nameRow.onclick = async () => {
+      const newName = prompt(t('groupNamePrompt'), info.name);
+      if (newName && newName.trim() && newName.trim() !== info.name) {
+        try {
+          await api.updateGroup(groupId, { name: newName.trim() });
+          info.name = newName.trim();
+          // Update local state
+          const groupEntry = (state.groupsList || []).find(g => g.id === groupId);
+          if (groupEntry) groupEntry.name = newName.trim();
+          const chatEntry = state.chats.find(c => c.id === groupId);
+          if (chatEntry) chatEntry.name = newName.trim();
+          refreshGroupList();
+          refreshChatList();
+          // Update UI
+          nameEl.textContent = newName.trim();
+          const curNameEl = nameRow.querySelector('#gi-cur-name');
+          if (curNameEl) curNameEl.textContent = newName.trim();
+          showToast(t('groupNameUpdated'));
+        } catch { showToast(t('groupUpdateFailed')); }
+      }
+    };
+    ownerSection.appendChild(nameRow);
+
+    content.appendChild(ownerSection);
+  }
 
   // ── Notice ──
   const noticeSection = document.createElement('div');

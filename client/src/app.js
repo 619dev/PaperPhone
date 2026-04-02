@@ -265,6 +265,21 @@ function setupGlobalSocketHandlers() {
     refreshGroupList();
     refreshChatList();
   });
+  onEvent('group_updated', ({ group_id, name, avatar, notice }) => {
+    const group = (state.groupsList || []).find(g => g.id === group_id);
+    if (group) {
+      if (name !== undefined) group.name = name;
+      if (avatar !== undefined) group.avatar = avatar;
+      if (notice !== undefined) group.notice = notice;
+    }
+    const chat = state.chats.find(c => c.id === group_id);
+    if (chat) {
+      if (name !== undefined) chat.name = name;
+      if (avatar !== undefined) chat.avatar = avatar;
+    }
+    refreshGroupList();
+    refreshChatList();
+  });
   onEvent('group_disbanded', ({ group_id }) => {
     state.groupsList = (state.groupsList || []).filter(g => g.id !== group_id);
     state.chats = state.chats.filter(c => c.id !== group_id);
