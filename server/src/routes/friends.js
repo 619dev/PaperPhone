@@ -147,4 +147,47 @@ router.patch('/:id/auto-delete', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/friends/add-by-id — add friend from QR scan (by user_id)
+router.post('/add-by-id', async (req, res, next) => {
+  try {
+    const { user_id, message } = req.body;
+    if (!user_id || user_id === req.user.id) return res.status(400).json({ error: 'Invalid user_id' });
+    const msg = message ? String(message).slice(0, 512) : null;
+    const db = getDb();
+    // Check if user exists
+    const [userRows] = await db.query('SELECT id, username, nickname, avatar FROM users WHERE id = ?', [user_id]);
+    if (!userRows.length) return res.status(404).json({ error: 'User not found' });
+    // Check if already friends
+    const [friendCheck] = await db.query(
+      `SELECT status FROM friends WHERE user_id = ? AND friend_id = ?`,
+      [req.user.id, user_id]
+    );
+    if (friendCheck.length && friendCheck[0].status === 'accepted') {
+      return res.status(400).json({ error: 'Already friends', already_friend: true });
+    }
+    // Ensure message column exists
+    try {
+      await db.query(`ALTER TABLE friends ADD COLUMN message VARCHAR(512) DEFAULT NULL AFTER auto_delete`);
+    } catch { /* column already exists */ }
+    await db.query(
+      `INSERT IGNORE INTO friends (user_id, friend_id, status, message) VALUES (?, ?, 'pending', ?)`,
+      [req.user.id, user_id, msg]
+    );
+    const delivered = sendToUser(user_id, { type: 'friend_request', from: req.user.id, message: msg });
+    if (!delivered) {
+      const [senderRows] = await db.query('SELECT nickname, username FROM users WHERE id = ?', [req.user.id]);
+      const senderName = senderRows[0]?.nickname || senderRows[0]?.username || 'Someone';
+      const pushPayload = {
+        type: 'friend_request',
+        title: 'PaperPhone',
+        body: msg ? `${senderName}: ${msg.slice(0, 100)}` : `${senderName} sent you a friend request`,
+        data: { type: 'friend_request', from: req.user.id },
+      };
+      pushToUser(user_id, pushPayload).catch(() => {});
+      pushToUserOneSignal(user_id, pushPayload).catch(() => {});
+    }
+    res.json({ ok: true, user: userRows[0] });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

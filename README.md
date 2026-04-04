@@ -43,6 +43,7 @@
 | 🏷️ 好友标签 | 为好友设置多个标签（12色预设调色板），按标签分类筛选通讯录 |
 | 🗂️ R2 对象存储 | Cloudflare R2 存储图片/语音，可选公开 CDN 直链 |
 | 🔑 两步验证 (2FA) | Google Authenticator 兼容 TOTP 验证，8 个一次性恢复码，登录时强制验证 |
+| 📷 扫码加好友/入群 | 扫一扫二维码添加好友、加入群聊，群二维码可设置有效期（1 周/1 月/3 月） |
 | 🏗️ 可自托管 | Docker Compose 一键部署，支持 Node.js + Redis 多节点 |
 
 ---
@@ -310,7 +311,9 @@ paperphone/
         ├── i18n.js             # 多语言引擎（zh/en/ja/ko/fr/de/ru/es）
         ├── services/
         │   ├── webrtc.js       # WebRTC 管理器（CallManager）
-        │   └── pushNotification.js  # 推送订阅管理（Web Push + Median 桥接）
+        │   ├── pushNotification.js  # 推送订阅管理（Web Push + Median 桥接）
+        │   ├── qrcode.js       # QR 码生成器（内置编码器，无外部依赖）
+        │   └── scanner.js      # 摄像头扫码 + 相册扫码（jsQR）
         ├── crypto/
         │   ├── ratchet.js      # X3DH + Double Ratchet + ML-KEM-768
         │   └── keystore.js     # 四层私钥持久化（内存/localStorage/sessionStorage/IndexedDB）
@@ -327,7 +330,8 @@ paperphone/
         │   └── call.js         # 通话 UI（来电/通话中/多人视频）
         └── components/
             ├── tagManager.js   # 标签管理组件
-            └── momentCard.js   # 朋友圈卡片组件（可复用）
+            ├── momentCard.js   # 朋友圈卡片组件（可复用）
+            └── qrUI.js         # 二维码显示/扫码结果处理组件
         └── pages/
             ...
             ├── timeline.js     # 时间线（小红书风格瀑布流 + 发帖 + 详情）
@@ -337,7 +341,7 @@ paperphone/
 
 ## 数据库结构
 
-共 18 张表，首次启动自动创建（`CREATE TABLE IF NOT EXISTS`）：
+共 19 张表，首次启动自动创建（`CREATE TABLE IF NOT EXISTS`）：
 
 | 表名 | 说明 |
 |------|------|
@@ -359,6 +363,7 @@ paperphone/
 | `timeline_media` | 时间线媒体（图片/视频，每帖最多 50 个） |
 | `timeline_likes` | 时间线点赞 |
 | `timeline_comments` | 时间线评论（支持匿名） |
+| `group_invites` | 群邀请链接（含有效期，用于二维码加群） |
 
 ---
 

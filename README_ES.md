@@ -43,6 +43,7 @@ Una aplicación de mensajería instantánea cifrada de extremo a extremo estilo 
 | 🏷️ Etiquetas de amigos | Múltiples etiquetas por amigo (paleta de 12 colores), filtrar contactos por etiqueta |
 | 🗂️ Almacenamiento R2 | Cloudflare R2 para imágenes/audio — URL CDN opcional |
 | 🔑 Auth de dos factores (2FA) | TOTP compatible con Google Authenticator, 8 códigos de recuperación, verificación obligatoria al iniciar sesión |
+| 📷 Escaneo QR y compartir | Escanea códigos QR para añadir amigos o unirse a grupos; QR de grupo con caducidad configurable (1 sem./1 mes/3 meses) |
 | 🏗️ Auto-alojable | Despliegue Docker Compose en un comando |
 
 ---
@@ -155,7 +156,7 @@ El servidor ve: ✅ texto cifrado + metadatos de enrutamiento  ❌ texto plano /
 
 ## Esquema de base de datos
 
-18 tablas, creadas automáticamente en el primer inicio:
+19 tablas, creadas automáticamente en el primer inicio:
 
 | Tabla | Propósito |
 |-------|-----------|
@@ -175,6 +176,7 @@ El servidor ve: ✅ texto cifrado + metadatos de enrutamiento  ❌ texto plano /
 | `timeline_media` | Medios de cronología (imágenes/vídeos, máx. 50 por post) |
 | `timeline_likes` | Likes de cronología |
 | `timeline_comments` | Comentarios de cronología (anónimo opcional) |
+| `group_invites` | Enlaces de invitación a grupos (con caducidad, para unirse por QR) |
 
 ---
 

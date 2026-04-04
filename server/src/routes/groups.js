@@ -225,4 +225,113 @@ router.patch('/:id/mute', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Group Invite QR Codes ──────────────────────────────────────────────────
+
+// POST /api/groups/:id/invite — create invite link (owner/admin only)
+router.post('/:id/invite', async (req, res, next) => {
+  try {
+    const db = getDb();
+    // Ensure group_invites table exists (idempotent)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS group_invites (
+        id          VARCHAR(36)   PRIMARY KEY,
+        group_id    VARCHAR(36)   NOT NULL,
+        created_by  VARCHAR(36)   NOT NULL,
+        expires_at  DATETIME      NOT NULL,
+        created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_gi_group (group_id),
+        INDEX idx_gi_expires (expires_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    // Check caller is owner or admin
+    const [roleRows] = await db.query(
+      'SELECT role FROM group_members WHERE group_id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
+    if (!roleRows.length || !['owner', 'admin'].includes(roleRows[0].role)) {
+      return res.status(403).json({ error: 'Only owner or admin can create invites' });
+    }
+    const durationMap = { '1w': 7, '1m': 30, '3m': 90 };
+    const days = durationMap[req.body.duration] || 7;
+    const id = uuidv4();
+    const expiresAt = new Date(Date.now() + days * 86400000);
+    await db.query(
+      'INSERT INTO group_invites (id, group_id, created_by, expires_at) VALUES (?, ?, ?, ?)',
+      [id, req.params.id, req.user.id, expiresAt]
+    );
+    res.status(201).json({ invite_id: id, expires_at: expiresAt.toISOString() });
+  } catch (err) { next(err); }
+});
+
+// GET /api/groups/invite/:invite_id — get invite info
+router.get('/invite/:invite_id', async (req, res, next) => {
+  try {
+    const db = getDb();
+    const [rows] = await db.query(
+      `SELECT gi.id, gi.group_id, gi.expires_at, g.name, g.avatar,
+              (SELECT COUNT(*) FROM group_members WHERE group_id = gi.group_id) AS member_count
+       FROM group_invites gi
+       JOIN \`groups\` g ON g.id = gi.group_id
+       WHERE gi.id = ?`,
+      [req.params.invite_id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Invite not found' });
+    const invite = rows[0];
+    if (new Date(invite.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Invite expired', expired: true });
+    }
+    res.json({
+      invite_id: invite.id,
+      group_id: invite.group_id,
+      group_name: invite.name,
+      group_avatar: invite.avatar,
+      member_count: invite.member_count,
+      expires_at: invite.expires_at,
+    });
+  } catch (err) { next(err); }
+});
+
+// POST /api/groups/invite/:invite_id/join — join group via invite
+router.post('/invite/:invite_id/join', async (req, res, next) => {
+  try {
+    const db = getDb();
+    const [rows] = await db.query(
+      'SELECT * FROM group_invites WHERE id = ?',
+      [req.params.invite_id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Invite not found' });
+    const invite = rows[0];
+    if (new Date(invite.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Invite expired', expired: true });
+    }
+    // Check if already a member
+    const [memberCheck] = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?',
+      [invite.group_id, req.user.id]
+    );
+    if (memberCheck.length) {
+      return res.status(400).json({ error: 'Already a member', already_member: true });
+    }
+    // Check member count
+    const [countRows] = await db.query(
+      'SELECT COUNT(*) AS cnt FROM group_members WHERE group_id = ?',
+      [invite.group_id]
+    );
+    if (countRows[0].cnt >= MAX_GROUP_MEMBERS) {
+      return res.status(400).json({ error: `Group cannot exceed ${MAX_GROUP_MEMBERS} members` });
+    }
+    // Add member
+    await db.query(
+      `INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')`,
+      [invite.group_id, req.user.id]
+    );
+    // Fetch group info
+    const [groups] = await db.query('SELECT id, name, avatar FROM `groups` WHERE id = ?', [invite.group_id]);
+    const group = groups[0];
+    // Notify existing members
+    sendToGroup(invite.group_id, { type: 'group_member_added', group_id: invite.group_id, user_id: req.user.id });
+    res.json({ ok: true, group });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

@@ -43,6 +43,7 @@ A WeChat-style end-to-end encrypted instant messaging app with stateless ECDH + 
 | 🏷️ Friend Tags | Assign multiple tags to friends (12-color preset palette), filter contacts by tag |
 | 🗂️ R2 Object Storage | Cloudflare R2 for image/voice files — optional public CDN URL |
 | 🔑 Two-Factor Auth (2FA) | Google Authenticator–compatible TOTP, 8 one-time recovery codes, enforced at login |
+| 📷 QR Code Scan & Share | Scan QR codes to add friends or join groups; group QR codes support configurable expiry (1 week / 1 month / 3 months) |
 | 🏗️ Self-Hostable | Docker Compose one-command deployment; Node.js + Redis multi-node ready |
 
 ---
@@ -310,7 +311,9 @@ paperphone/
         ├── i18n.js             # Multi-language engine (zh / en / ja / ko / fr / de / ru / es)
         ├── services/
         │   ├── webrtc.js       # WebRTC manager — CallManager class
-        │   └── pushNotification.js  # Push subscription mgmt (Web Push + Median bridge)
+        │   ├── pushNotification.js  # Push subscription mgmt (Web Push + Median bridge)
+        │   ├── qrcode.js       # QR code generator (inline encoder, zero dependencies)
+        │   └── scanner.js      # Camera QR scanner + album scan (jsQR)
         ├── crypto/
         │   ├── ratchet.js      # X3DH + Double Ratchet + ML-KEM-768
         │   └── keystore.js     # IndexedDB private key store
@@ -327,14 +330,15 @@ paperphone/
         │   └── call.js         # Call UI (incoming / active / multi-party video)
         └── components/
             ├── tagManager.js   # Tag management component
-            └── momentCard.js   # Reusable Moment card component
+            ├── momentCard.js   # Reusable Moment card component
+            └── qrUI.js         # QR code display / scan result handler component
 ```
 
 ---
 
 ## Database Schema
 
-18 tables, auto-created on first server startup (`CREATE TABLE IF NOT EXISTS`):
+19 tables, auto-created on first server startup (`CREATE TABLE IF NOT EXISTS`):
 
 | Table | Purpose |
 |-------|---------|
@@ -356,6 +360,7 @@ paperphone/
 | `timeline_media` | Timeline media (images/videos, up to 50 per post) |
 | `timeline_likes` | Timeline likes |
 | `timeline_comments` | Timeline comments (optional anonymous) |
+| `group_invites` | Group invite links (with expiry, for QR code joining) |
 
 ---
 

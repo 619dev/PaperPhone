@@ -372,3 +372,16 @@ CREATE TABLE IF NOT EXISTS timeline_comments (
   FOREIGN KEY (post_id) REFERENCES timeline_posts(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Group Invites (QR code invite links with expiration) ─────────────────
+CREATE TABLE IF NOT EXISTS group_invites (
+  id          VARCHAR(36)   PRIMARY KEY,
+  group_id    VARCHAR(36)   NOT NULL,
+  created_by  VARCHAR(36)   NOT NULL,
+  expires_at  DATETIME      NOT NULL,
+  created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (group_id)   REFERENCES `groups`(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id)    ON DELETE CASCADE,
+  INDEX idx_gi_group (group_id),
+  INDEX idx_gi_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

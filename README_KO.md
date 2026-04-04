@@ -43,6 +43,7 @@ WeChat 스타일의 종단간 암호화 인스턴트 메시징 앱. 무상태 EC
 | 🏷️ 친구 태그 | 친구에게 여러 태그 할당 (12색 프리셋), 태그별 연락처 필터링 |
 | 🗂️ R2 오브젝트 스토리지 | Cloudflare R2로 이미지/음성 파일 저장 — 선택적 공개 CDN URL |
 | 🔑 2단계 인증 (2FA) | Google Authenticator 호환 TOTP, 8개 일회용 복구 코드, 로그인 시 강제 인증 |
+| 📷 QR 코드 스캔 & 공유 | QR 코드 스캔으로 친구 추가 · 그룹 참여, 그룹 QR은 유효기간 설정 가능 (1주/1개월/3개월) |
 | 🏗️ 셀프 호스팅 가능 | Docker Compose 원커맨드 배포, Node.js + Redis 멀티 노드 지원 |
 
 ---
@@ -271,7 +272,7 @@ server {
 
 ## 데이터베이스 스키마
 
-18개 테이블, 서버 첫 시작 시 자동 생성 (`CREATE TABLE IF NOT EXISTS`):
+19개 테이블, 서버 첫 시작 시 자동 생성 (`CREATE TABLE IF NOT EXISTS`):
 
 | 테이블 | 용도 |
 |--------|------|
@@ -293,6 +294,7 @@ server {
 | `timeline_media` | 타임라인 미디어 (이미지/동영상, 게시물당 최대 50개) |
 | `timeline_likes` | 타임라인 좋아요 |
 | `timeline_comments` | 타임라인 댓글 (익명 지원) |
+| `group_invites` | 그룹 초대 링크 (유효기간 포함, QR 코드 참여용) |
 
 ---
 

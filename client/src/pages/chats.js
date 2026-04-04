@@ -3,6 +3,7 @@
  */
 import { state, openChat, avatarEl, formatTime } from '../app.js';
 import { t } from '../i18n.js';
+import { startScan, scanIconSvg } from '../components/qrUI.js';
 
 // Module-level reference so refreshChatList() can update the list from outside
 let _listEl = null;
@@ -11,7 +12,7 @@ let _searchEl = null;
 export function renderChats(root) {
   root.innerHTML = `
     <div class="topbar">
-      <div style="min-width:44px"></div>
+      <button class="scan-btn" id="chats-scan-btn" title="${t('scan')}">${scanIconSvg()}</button>
       <div class="topbar-title">${t('chatsTitle')}</div>
       <button class="topbar-btn topbar-action" id="new-chat-btn" title="Edit">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -27,6 +28,8 @@ export function renderChats(root) {
 
   _listEl = root.querySelector('#chat-list');
   _searchEl = root.querySelector('#chats-search');
+
+  root.querySelector('#chats-scan-btn').addEventListener('click', startScan);
 
   renderList(getSorted());
 

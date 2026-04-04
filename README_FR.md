@@ -43,6 +43,7 @@ Une application de messagerie instantanée chiffrée de bout en bout, style WeCh
 | 🏷️ Tags d'amis | Plusieurs tags par ami (12 couleurs), filtrage des contacts |
 | 🗂️ Stockage R2 | Cloudflare R2 pour images/audio — CDN optionnel |
 | 🔑 Auth à deux facteurs (2FA) | TOTP compatible Google Authenticator, 8 codes de récupération, vérification obligatoire à la connexion |
+| 📷 Scan QR & partage | Scannez un QR code pour ajouter un ami ou rejoindre un groupe ; QR de groupe avec durée configurable (1 sem./1 mois/3 mois) |
 | 🏗️ Auto-hébergeable | Docker Compose en une commande |
 
 ---

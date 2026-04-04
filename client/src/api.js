@@ -164,6 +164,13 @@ export const api = {
   totpSetup:       ()    => req('POST', '/api/totp/setup'),
   totpVerifySetup: (code) => req('POST', '/api/totp/verify-setup', { code }),
   totpDisable:     (code) => req('POST', '/api/totp/disable', { code }),
+
+  // QR Code / Invite
+  createGroupInvite: (groupId, duration) => req('POST', `/api/groups/${groupId}/invite`, { duration }),
+  getGroupInvite:    (inviteId) => req('GET', `/api/groups/invite/${inviteId}`),
+  joinGroupByInvite: (inviteId) => req('POST', `/api/groups/invite/${inviteId}/join`),
+  addFriendById:     (userId, message) => req('POST', '/api/friends/add-by-id', { user_id: userId, message }),
+
   totpVerifyLogin: (code, loginToken) => {
     return fetch(`${BASE}/api/totp/verify-login`, {
       method: 'POST',

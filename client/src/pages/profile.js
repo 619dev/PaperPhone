@@ -7,6 +7,7 @@ import { uploadFileWithRing } from '../uploadProgress.js';
 import { disconnect } from '../socket.js';
 import { t, getLang, getLangName, getLangFlag, getSupportedLangs, setLang, onLangChange, offLangChange } from '../i18n.js';
 import { isPushSupported, isPushSubscribed, subscribePush, unsubscribePush, getPermissionState } from '../services/pushNotification.js';
+import { showMyQRCode, qrCodeIconSvg } from '../components/qrUI.js';
 
 export function renderProfile(root) {
   const u = state.user;
@@ -47,6 +48,11 @@ export function renderProfile(root) {
           <div class="settings-icon" style="background:#07C160"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div>
           <span class="settings-label">${t('changeNickname')}</span>
           <span class="settings-value" id="cur-nickname">${esc(u.nickname || u.username)}</span>
+          <span class="settings-chevron">›</span>
+        </div>
+        <div class="settings-item" id="my-qrcode">
+          <div class="settings-icon" style="background:#007AFF">${qrCodeIconSvg()}</div>
+          <span class="settings-label">${t('myQRCode')}</span>
           <span class="settings-chevron">›</span>
         </div>
       </div>
@@ -134,6 +140,9 @@ export function renderProfile(root) {
       } catch { showToast(t('avatarFailed')); }
       avatarFileInput.value = '';
     });
+
+    // My QR Code
+    root.querySelector('#my-qrcode').onclick = () => showMyQRCode(u);
 
     // Change nickname
     root.querySelector('#change-nickname').onclick = async () => {

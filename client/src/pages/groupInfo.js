@@ -7,6 +7,7 @@ import { t } from '../i18n.js';
 import { uploadFileWithRing } from '../uploadProgress.js';
 import { refreshGroupList, } from './groups.js';
 import { refreshChatList } from './chats.js';
+import { showGroupQRCode, qrCodeIconSvg } from '../components/qrUI.js';
 
 const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -185,6 +186,23 @@ export async function renderGroupInfo(root, groupId) {
 
     content.appendChild(ownerSection);
   }
+
+  // ── Group QR Code ──
+  const qrSection = document.createElement('div');
+  qrSection.className = 'settings-section';
+  const qrRow = document.createElement('div');
+  qrRow.className = 'list-item';
+  qrRow.style.cursor = 'pointer';
+  qrRow.innerHTML = `
+    <div style="flex:1;display:flex;align-items:center;gap:10px;">
+      <div class="settings-icon" style="background:#007AFF;width:28px;height:28px;border-radius:8px;">${qrCodeIconSvg()}</div>
+      <span style="font-size:15px;font-weight:500;">${t('groupQRCode')}</span>
+    </div>
+    <span style="color:var(--text-muted);font-size:16px;">›</span>
+  `;
+  qrRow.onclick = () => showGroupQRCode(groupId, info.name, info.avatar, isAdmin);
+  qrSection.appendChild(qrRow);
+  content.appendChild(qrSection);
 
   // ── Notice ──
   const noticeSection = document.createElement('div');

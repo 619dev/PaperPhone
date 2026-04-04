@@ -6,11 +6,12 @@ import { renderUserProfile } from './userProfile.js';
 import { api } from '../api.js';
 import { t } from '../i18n.js';
 import { openTagManager, openFriendTagPicker } from '../components/tagManager.js';
+import { startScan, scanIconSvg } from '../components/qrUI.js';
 
 export function renderContacts(root) {
   root.innerHTML = `
     <div class="topbar">
-      <div style="min-width:44px"></div>
+      <button class="scan-btn" id="contacts-scan-btn" title="${t('scan')}">${scanIconSvg()}</button>
       <div class="topbar-title">${t('contactsTitle')}</div>
       <button class="topbar-btn topbar-action" id="add-btn" title="${t('add')}">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
@@ -30,6 +31,8 @@ export function renderContacts(root) {
   const resultsEl = root.querySelector('#search-results');
   const searchInput = root.querySelector('#contact-search');
   const filterBar = root.querySelector('#tag-filter-bar');
+
+  root.querySelector('#contacts-scan-btn').addEventListener('click', startScan);
 
   let activeTagId = null; // null = all
   let tags = [];

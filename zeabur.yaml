@@ -38,6 +38,7 @@ spec:
     - 🏷️ **Friend Tags** — tag-based contact filtering & Moments visibility control
     - 🎭 **Telegram Sticker Packs** — dynamic sticker packs with configurable pack list, unlimited quantity
     - 🔑 **Two-Factor Auth (2FA)** — Google Authenticator TOTP, 8 recovery codes
+    - 📷 **QR Code Scan & Share** — scan QR to add friends or join groups; group QR codes with configurable expiry (1 week / 1 month / 3 months)
 
     ## After Deployment
     1. Open the domain assigned to the **client** service.
@@ -462,6 +463,7 @@ localization:
       - 🏷️ **好友标签** — 标签分类筛选通讯录 + 朋友圈可见性控制
       - 🎭 **Telegram 贴纸包** — 动态贴纸包管理，可自定义包列表，数量无上限
       - 🔑 **两步验证 (2FA)** — Google Authenticator TOTP，8 个恢复码
+      - 📷 **扫码加好友/入群** — 扫一扫二维码添加好友、加入群聊，群二维码可设置有效期（1周/1月/3月）
 
       ## 部署后操作
       1. 打开分配给 **client** 服务的域名。

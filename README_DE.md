@@ -43,6 +43,7 @@ Eine Instant-Messaging-App im WeChat-Stil mit Ende-zu-Ende-Verschlüsselung übe
 | 🏷️ Freunde-Tags | Mehrere Tags pro Freund (12-Farben-Palette), Kontakte nach Tags filtern |
 | 🗂️ R2-Speicher | Cloudflare R2 für Bild-/Audiodateien — optionale CDN-URL |
 | 🔑 Zwei-Faktor-Auth (2FA) | Google Authenticator–kompatibles TOTP, 8 einmalige Wiederherstellungscodes, Pflichtprüfung bei Anmeldung |
+| 📷 QR-Code-Scan & Teilen | QR-Code scannen um Freunde hinzuzufügen oder Gruppen beizutreten; Gruppen-QR mit konfigurierbarer Gültigkeit (1 Woche/1 Monat/3 Monate) |
 | 🏗️ Self-Hosting | Docker Compose Ein-Befehl-Deployment |
 
 ---
@@ -155,7 +156,7 @@ Server sieht: ✅ Chiffretext + Routing-Metadaten  ❌ Klartext / private Schlü
 
 ## Datenbankschema
 
-18 Tabellen, automatisch beim ersten Start erstellt:
+19 Tabellen, automatisch beim ersten Start erstellt:
 
 | Tabelle | Zweck |
 |---------|-------|
@@ -175,6 +176,7 @@ Server sieht: ✅ Chiffretext + Routing-Metadaten  ❌ Klartext / private Schlü
 | `timeline_media` | Zeitachse-Medien (Bilder/Videos, max. 50 pro Beitrag) |
 | `timeline_likes` | Zeitachse-Likes |
 | `timeline_comments` | Zeitachse-Kommentare (anonym möglich) |
+| `group_invites` | Gruppen-Einladungslinks (mit Ablaufdatum, für QR-Code-Beitritt) |
 
 ---
 
