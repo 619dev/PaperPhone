@@ -1,6 +1,6 @@
 # PaperPhone IM
 
-🌐 **其他语言 / Other Languages:** [English](docs/README_EN.md) · [日本語](docs/README_JA.md) · [한국어](docs/README_KO.md) · [Français](docs/README_FR.md) · [Deutsch](docs/README_DE.md) · [Русский](docs/README_RU.md) · [Español](docs/README_ES.md)
+🌐 **其他语言 / Other Languages:** [English](README_EN.md) · [日本語](README_JA.md) · [한국어](README_KO.md) · [Français](README_FR.md) · [Deutsch](README_DE.md) · [Русский](README_RU.md) · [Español](README_ES.md)
 
 一款微信风格的端对端加密即时通讯应用，采用无状态 ECDH + XSalsa20-Poly1305 逐消息加密，支持 iOS PWA 永久免签与 Cloudflare R2 文件存储。
 
@@ -9,20 +9,21 @@
 [![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/P2J7Y3?referralCode=619dev)
 
 ---
-<img width=30% height=30% src="docs/images/ui1.jpg" alt="ui1">
-<img width=30% height=30% src="docs/images/ui2.jpg" alt="ui2">
-<img width=30% height=30% src="docs/images/ui3.jpg" alt="ui3">
-<img width=30% height=30% src="docs/images/ui4.jpg" alt="ui4">
-<img width=30% height=30% src="docs/images/ui5.jpg" alt="ui5">
-<img width=30% height=30% src="docs/images/ui6.jpg" alt="ui6">
-<img width=30% height=30% src="docs/images/ui7.jpg" alt="ui7">
-<img width=30% height=30% src="docs/images/ui8.jpg" alt="ui8">
-<img width=30% height=30% src="docs/images/ui9.jpg" alt="ui9">
-<img width=30% height=30% src="docs/images/ui10.jpg" alt="ui10">
-<img width=30% height=30% src="docs/images/ui11.jpg" alt="ui11">
-<img width=30% height=30% src="docs/images/ui12.jpg" alt="ui12">
-<img width=30% height=30% src="docs/images/ui13.jpg" alt="ui13">
-<img width=30% height=30% src="docs/images/ui14.jpg" alt="ui14">
+<img width=30% height=30% src="images/ui1.jpg" alt="ui1">
+<img width=30% height=30% src="images/ui2.jpg" alt="ui2">
+<img width=30% height=30% src="images/ui3.jpg" alt="ui3">
+<img width=30% height=30% src="images/ui4.jpg" alt="ui4">
+<img width=30% height=30% src="images/ui5.jpg" alt="ui5">
+<img width=30% height=30% src="images/ui6.jpg" alt="ui6">
+<img width=30% height=30% src="images/ui7.jpg" alt="ui7">
+<img width=30% height=30% src="images/ui8.jpg" alt="ui8">
+<img width=30% height=30% src="images/ui9.jpg" alt="ui9">
+<img width=30% height=30% src="images/ui10.jpg" alt="ui10">
+<img width=30% height=30% src="images/ui11.jpg" alt="ui11">
+<img width=30% height=30% src="images/ui12.jpg" alt="ui12">
+<img width=30% height=30% src="images/ui13.jpg" alt="ui13">
+<img width=30% height=30% src="images/ui14.jpg" alt="ui14">
+
 
 ## 特性
 
@@ -411,4 +412,4 @@ paperphone/
 | `STICKER_PACKS` | 自定义贴纸包列表（可选，逗号分隔 `包名:显示名`，数量无上限） | 内置 8 个默认包 |
 ---
 如果这个项目对你有用的话，请我喝罐可乐吧。
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/docs/images/%E8%AF%B7%E6%88%91%E5%96%9D%E5%8F%AF%E4%B9%90.jpg" alt="qrcode">
+<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/images/%E8%AF%B7%E6%88%91%E5%96%9D%E5%8F%AF%E4%B9%90.jpg" alt="qrcode">

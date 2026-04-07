@@ -1,6 +1,6 @@
 # PaperPhone IM
 
-🌐 **Другие языки / Other Languages:** [中文](README.md) · [English](README_EN.md) · [日本語](README_JA.md) · [한국어](README_KO.md) · [Français](README_FR.md) · [Deutsch](README_DE.md) · [Español](README_ES.md)
+🌐 **Другие языки / Other Languages:** [中文](README_CN.md) · [English](README_EN.md) · [日本語](README_JA.md) · [한국어](README_KO.md) · [Français](README_FR.md) · [Deutsch](README_DE.md) · [Español](README_ES.md)
 
 Мессенджер в стиле WeChat со сквозным шифрованием — безсостоянийный ECDH + XSalsa20-Poly1305 для каждого сообщения, видеозвонки в реальном времени, хранилище файлов Cloudflare R2, многоязычная поддержка и развёртывание iOS PWA.
 
@@ -9,20 +9,20 @@
 [![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/P2J7Y3?referralCode=619dev)
 
 ---
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui1.jpg" alt="ui1">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui2.jpg" alt="ui2">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui3.jpg" alt="ui3">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui4.jpg" alt="ui4">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui5.jpg" alt="ui5">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui6.jpg" alt="ui6">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui7.jpg" alt="ui7">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui8.jpg" alt="ui8">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui9.jpg" alt="ui9">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui10.jpg" alt="ui10">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui11.jpg" alt="ui11">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui12.jpg" alt="ui12">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui13.jpg" alt="ui13">
-<img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/ui14.jpg" alt="ui14">
+<img width=30% height=30% src="images/ui1.jpg" alt="ui1">
+<img width=30% height=30% src="images/ui2.jpg" alt="ui2">
+<img width=30% height=30% src="images/ui3.jpg" alt="ui3">
+<img width=30% height=30% src="images/ui4.jpg" alt="ui4">
+<img width=30% height=30% src="images/ui5.jpg" alt="ui5">
+<img width=30% height=30% src="images/ui6.jpg" alt="ui6">
+<img width=30% height=30% src="images/ui7.jpg" alt="ui7">
+<img width=30% height=30% src="images/ui8.jpg" alt="ui8">
+<img width=30% height=30% src="images/ui9.jpg" alt="ui9">
+<img width=30% height=30% src="images/ui10.jpg" alt="ui10">
+<img width=30% height=30% src="images/ui11.jpg" alt="ui11">
+<img width=30% height=30% src="images/ui12.jpg" alt="ui12">
+<img width=30% height=30% src="images/ui13.jpg" alt="ui13">
+<img width=30% height=30% src="images/ui14.jpg" alt="ui14">
 
 ## Возможности
 
