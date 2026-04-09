@@ -9,6 +9,10 @@ Una aplicación de mensajería instantánea cifrada de extremo a extremo estilo 
 [![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/P2J7Y3?referralCode=619dev)
 
 ---
+
+<details>
+<summary>📸 Capturas de pantalla (clic para expandir)</summary>
+
 <img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/screenshot/ui1.jpg" alt="ui1">
 <img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/screenshot/ui2.jpg" alt="ui2">
 <img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/screenshot/ui3.jpg" alt="ui3">
@@ -23,6 +27,8 @@ Una aplicación de mensajería instantánea cifrada de extremo a extremo estilo 
 <img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/screenshot/ui12.jpg" alt="ui12">
 <img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/screenshot/ui13.jpg" alt="ui13">
 <img width=30% height=30% src="https://raw.githubusercontent.com/619dev/PaperPhone/main/screenshot/ui14.jpg" alt="ui14">
+
+</details>
 
 ## Características
 
